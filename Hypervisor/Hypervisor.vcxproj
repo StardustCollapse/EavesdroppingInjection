@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{F68BB0B1-6191-8069-DDAB-055D10F0E024}</ProjectGuid>
+    <TemplateGuid>{dd38f7fc-d7bd-488b-9242-7d8754cde80d}</TemplateGuid>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
+    <Configuration>Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <RootNamespace>Hypervisor</RootNamespace>
+    <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)Header;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>Default</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)Header;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>Default</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <FilesToPackage Include="$(TargetPath)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Header\Driver\Driver.h" />
+    <ClInclude Include="Header\Driver\Ioctl.h" />
+    <ClInclude Include="Header\EptHook\EptHook.h" />
+    <ClInclude Include="Header\Ept\Ept.h" />
+    <ClInclude Include="Header\Log\Log.h" />
+    <ClInclude Include="Header\Memory\PhysicalMemory.h" />
+    <ClInclude Include="Header\Memory\VirtualMemory.h" />
+    <ClInclude Include="Header\Msr\Msr.h" />
+    <ClInclude Include="Header\Msr\MsrControlField.h" />
+    <ClInclude Include="Header\Register.h" />
+    <ClInclude Include="Header\util.h" />
+    <ClInclude Include="Header\Vcpu\Vcpu.h" />
+    <ClInclude Include="Header\Vcpu\VcpuState.h" />
+    <ClInclude Include="Header\VmCall\VmCall.h" />
+    <ClInclude Include="Header\Vmcs\SegmentRegister.h" />
+    <ClInclude Include="Header\Vmcs\Vmcs.h" />
+    <ClInclude Include="Header\Vmcs\VmcsField.h" />
+    <ClInclude Include="Header\VmExit\VmExit.h" />
+    <ClInclude Include="Header\Vmm\Dpc.h" />
+    <ClInclude Include="Header\Vmm\Vmm.h" />
+    <ClInclude Include="Header\Vmm\VmmState.h" />
+    <ClInclude Include="Header\Vmx\SupportVmx.h" />
+    <ClInclude Include="Header\Vmx\Vmx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Code\DriverEntry.cpp" />
+    <ClCompile Include="Code\Driver\Driver.cpp" />
+    <ClCompile Include="Code\Driver\DriverDispatch.cpp" />
+    <ClCompile Include="Code\Log\Log.cpp" />
+    <ClCompile Include="Code\Memory\VirtualMemory.cpp" />
+    <ClCompile Include="Code\Vcpu\Vcpu.cpp" />
+    <ClCompile Include="Code\Vmcs\Vmcs.cpp" />
+    <ClCompile Include="Code\Vmm\Vmm.cpp" />
+    <ClCompile Include="Code\Vmx\Vmx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="Assembly\AsmGetSegmentRegisters.asm" />
+    <MASM Include="Assembly\AsmVmxContext.asm" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

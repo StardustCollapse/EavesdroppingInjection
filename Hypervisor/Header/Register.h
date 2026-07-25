@@ -1,0 +1,62 @@
+#pragma once
+#include <ntifs.h>
+
+typedef union __CR0
+{
+	struct __CR0_FLAGS
+	{
+		ULONG64 PE : 1;
+		ULONG64 MP : 1;
+		ULONG64 EM : 1;
+		ULONG64 TS : 1;
+		ULONG64 ET : 1;
+		ULONG64 NE : 1;
+		ULONG64 Reserved1 : 10;
+		ULONG64 WP : 1;
+		ULONG64 Reserved2 : 1;
+		ULONG64 AM : 1;
+		ULONG64 Reserved3 : 10;
+		ULONG64 NW : 1;
+		ULONG64 CD : 1;
+		ULONG64 PG : 1;
+	} Flags;
+	ULONG64 All;
+} CR0, *PCR0;
+
+typedef union __CR4
+{
+	struct __CR4_FLAGS
+	{
+		ULONG64 VME : 1;
+		ULONG64 PVI : 1;
+		ULONG64 TSD : 1;
+		ULONG64 DE : 1;
+		ULONG64 PSE : 1;
+		ULONG64 PAE : 1;
+		ULONG64 MCE : 1;
+		ULONG64 PGE : 1;
+		ULONG64 PCE : 1;
+		ULONG64 OSFXSR : 1;
+		ULONG64 OSXMMEXCPT : 1;
+		ULONG64 UMIP : 1;
+		ULONG64 LA57 : 1;
+		ULONG64 VMXE : 1;
+		ULONG64 SMXE : 1;
+		ULONG64 Reserved1 : 1;
+		ULONG64 FSGSBASE : 1;
+		ULONG64 PCIDE : 1;
+		ULONG64 OSXSAVE : 1;
+		ULONG64 KL : 1;
+		ULONG64 SMEP : 1;
+		ULONG64 SMAP : 1;
+		ULONG64 PKE : 1;
+		ULONG64 CET : 1;
+		ULONG64 PKS : 1;
+		ULONG64 UINTR : 1;
+		ULONG64 Reserved2 : 2;
+		ULONG64 LAM_SUP : 1;
+		ULONG64 Reserved3 : 3;
+		ULONG64 Reserved4 : 32;
+	} Flags;
+	ULONG64 All;
+} CR4, *PCR4;

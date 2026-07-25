@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Driver Files">
+      <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
+      <Extensions>inf;inv;inx;mof;mc;</Extensions>
+    </Filter>
+    <Filter Include="Code">
+      <UniqueIdentifier>{338a4939-2448-4ff5-8929-e8c19c4ee9ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Code\Driver">
+      <UniqueIdentifier>{ae810ed3-95a5-4aa9-b2d3-53748490832b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Driver">
+      <UniqueIdentifier>{009bfd11-028b-4f70-990f-f5435285d021}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Vmm">
+      <UniqueIdentifier>{78a2b677-825f-40a3-9d4d-8076866edab7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Vcpu">
+      <UniqueIdentifier>{e277a237-0983-4623-b710-4a8ab83bc4bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Vmx">
+      <UniqueIdentifier>{10fc70cb-d124-4e54-8d9a-c51b6f09fbd5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Vmcs">
+      <UniqueIdentifier>{f4e305ae-d724-4661-90e6-bf50d8d9a1ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\VmCall">
+      <UniqueIdentifier>{b994f8a5-a97f-40ec-9297-f01839112c11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\VmExit">
+      <UniqueIdentifier>{82b29193-eaa3-4bb1-9966-be2648451732}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Ept">
+      <UniqueIdentifier>{04cf61a7-6d3c-43e7-aae4-c55febe3f8ac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\EptHook">
+      <UniqueIdentifier>{1691cd4f-09d1-40a3-b169-5c1c1d250405}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Memory">
+      <UniqueIdentifier>{2fe849d5-463e-4bb1-9412-80996fb71479}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Msr">
+      <UniqueIdentifier>{a8f842f1-b720-4817-a673-13d38bb23fb3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Log">
+      <UniqueIdentifier>{196b1ddd-a29a-4fcb-82a7-e814c502a357}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Log">
+      <UniqueIdentifier>{01969266-0b33-426d-bc72-00cc70c22957}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Vmm">
+      <UniqueIdentifier>{fb90a36f-e681-4a93-be65-70bd69424b9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Vmx">
+      <UniqueIdentifier>{d24f8bb4-b2c2-451d-91d9-eca80231f6a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Memory">
+      <UniqueIdentifier>{0a7a03ed-8103-4863-a9e4-fdc6d84c2945}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Vcpu">
+      <UniqueIdentifier>{b465db36-20eb-4b9b-b51d-695d00b446ec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assembly">
+      <UniqueIdentifier>{9d483e0a-5917-4b38-9074-76451b75f584}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Vmcs">
+      <UniqueIdentifier>{e67a3ac2-6d58-42cd-835c-3ef24b657890}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Header\Driver\Driver.h">
+      <Filter>Header\Driver</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmm\Vmm.h">
+      <Filter>Header\Vmm</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vcpu\Vcpu.h">
+      <Filter>Header\Vcpu</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmx\Vmx.h">
+      <Filter>Header\Vmx</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmcs\Vmcs.h">
+      <Filter>Header\Vmcs</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\VmCall\VmCall.h">
+      <Filter>Header\VmCall</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\VmExit\VmExit.h">
+      <Filter>Header\VmExit</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Ept\Ept.h">
+      <Filter>Header\Ept</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\EptHook\EptHook.h">
+      <Filter>Header\EptHook</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Memory\VirtualMemory.h">
+      <Filter>Header\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Memory\PhysicalMemory.h">
+      <Filter>Header\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Msr\Msr.h">
+      <Filter>Header\Msr</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Log\Log.h">
+      <Filter>Header\Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Driver\Ioctl.h">
+      <Filter>Header\Driver</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmm\VmmState.h">
+      <Filter>Header\Vmm</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmx\SupportVmx.h">
+      <Filter>Header\Vmx</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmcs\VmcsField.h">
+      <Filter>Header\Vmcs</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Msr\MsrControlField.h">
+      <Filter>Header\Msr</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vcpu\VcpuState.h">
+      <Filter>Header\Vcpu</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmm\Dpc.h">
+      <Filter>Header\Vmm</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Register.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Vmcs\SegmentRegister.h">
+      <Filter>Header\Vmcs</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\util.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Code\DriverEntry.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Driver\Driver.cpp">
+      <Filter>Code\Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Driver\DriverDispatch.cpp">
+      <Filter>Code\Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Log\Log.cpp">
+      <Filter>Code\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Vmm\Vmm.cpp">
+      <Filter>Code\Vmm</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Vmx\Vmx.cpp">
+      <Filter>Code\Vmx</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Memory\VirtualMemory.cpp">
+      <Filter>Code\Memory</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Vcpu\Vcpu.cpp">
+      <Filter>Code\Vcpu</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Vmcs\Vmcs.cpp">
+      <Filter>Code\Vmcs</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="Assembly\AsmVmxContext.asm">
+      <Filter>Assembly</Filter>
+    </MASM>
+    <MASM Include="Assembly\AsmGetSegmentRegisters.asm">
+      <Filter>Assembly</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>
