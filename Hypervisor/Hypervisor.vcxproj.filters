@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Driver Files">
@@ -72,6 +72,12 @@
     <Filter Include="Code\Vmcs">
       <UniqueIdentifier>{e67a3ac2-6d58-42cd-835c-3ef24b657890}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Code\VmExit">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Msr">
+      <UniqueIdentifier>{e9263e90-e602-45d4-b25c-a1cb1c1dfbab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Header\Driver\Driver.h">
@@ -143,6 +149,12 @@
     <ClInclude Include="Header\util.h">
       <Filter>Header</Filter>
     </ClInclude>
+    <ClInclude Include="Header\VmExit\InjectEvent.h">
+      <Filter>Header\VmExit</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\VmExit\VmxBasicExitReasons.h">
+      <Filter>Header\VmExit</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\DriverEntry.cpp">
@@ -171,6 +183,18 @@
     </ClCompile>
     <ClCompile Include="Code\Vmcs\Vmcs.cpp">
       <Filter>Code\Vmcs</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\VmExit\VmExit.cpp">
+      <Filter>Code\VmExit</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Msr\Msr.cpp">
+      <Filter>Code\Msr</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Util.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\VmExit\InjectEvent.cpp">
+      <Filter>Code\VmExit</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

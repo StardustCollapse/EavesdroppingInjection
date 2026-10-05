@@ -2,6 +2,7 @@
 #include "Vmx/Vmx.h"
 #include "Vcpu/Vcpu.h"
 #include "Memory/VirtualMemory.h"
+#include "Util.h"
 #include "Log/Log.h"
 
 VMM_STATE Vmm::VmmState = { 0 };
@@ -59,6 +60,8 @@ Vmm::LoadVMM()
 	}
 
 	LogInformation("Initialize Vcpu states successfully");
+
+	Util::HostCr3 = Util::FindSystemDirectoryTableBase();
 
 	//save Guest Stack and call Vcpu::InitializeVcpuState(PVOID GuestStack)
 	KeIpiGenericCall(AsmVmxContextSaveState, NULL);

@@ -169,6 +169,24 @@ Vmx::VmxInitializeMsrBitmap(PVCPU_STATE CurrentCPU)
 		(PVOID)CurrentCPU->MsrBitmapVirtualAddress,
 		(PVOID)CurrentCPU->MsrBitmapPhysicalAddress);
 
+	for (ULONG64 MsrStep = MSRs::IA32_VMX_BASIC; MsrStep <= MSRs::IA32_VMX_EXIT_CTLS2; MsrStep++)
+	{
+		if (!Msr::SetMsrBitmap(CurrentCPU->MsrBitmapVirtualAddress, MsrStep, TRUE, TRUE))
+		{
+			LogError("Invalid parameters sent to the SetMsrBitmap function");
+			return FALSE;
+		}
+	}
+
+	if (
+		!(Msr::SetMsrBitmap(CurrentCPU->MsrBitmapVirtualAddress, MSRs::IA32_LSTAR, TRUE, TRUE) &&
+		Msr::SetMsrBitmap(CurrentCPU->MsrBitmapVirtualAddress, MSRs::IA32_FEATURE_CONTROL, TRUE, FALSE))
+	)
+	{
+		LogError("Invalid parameters sent to the SetMsrBitmap function");
+		return FALSE;
+	}
+
 	return TRUE;
 }
 

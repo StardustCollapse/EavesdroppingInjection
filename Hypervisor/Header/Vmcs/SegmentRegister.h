@@ -2,10 +2,10 @@
 #include <ntifs.h>
 #include "Vmcs/VmcsField.h"
 
-#define GuestSegmentSelectorTransform(SegmentRegister) Guest_State_Fields::Guest_ES_Selector + SegmentRegister * 2
-#define GuestSegmentLimitTransform(SegmentRegister) Guest_State_Fields::Guest_ES_Limit + SegmentRegister * 2
-#define GuestSegmentAccessRightsTransform(SegmentRegister) Guest_State_Fields::Guest_ES_Access_Rights + SegmentRegister * 2
-#define GuestSegmentBaseTransform(SegmentRegister) Guest_State_Fields::Guest_ES_Base + SegmentRegister * 2
+#define GuestSegmentSelectorTransform(SegmentRegister) (Guest_State_Fields::Guest_ES_Selector + (SegmentRegister) * 2)
+#define GuestSegmentLimitTransform(SegmentRegister) (Guest_State_Fields::Guest_ES_Limit + (SegmentRegister) * 2)
+#define GuestSegmentAccessRightsTransform(SegmentRegister) (Guest_State_Fields::Guest_ES_Access_Rights + (SegmentRegister) * 2)
+#define GuestSegmentBaseTransform(SegmentRegister) (Guest_State_Fields::Guest_ES_Base + (SegmentRegister) * 2)
 
 enum SegmentRegisterIndex
 {
