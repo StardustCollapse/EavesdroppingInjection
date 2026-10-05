@@ -2,10 +2,73 @@
 #include "VmExit/VmExit.h"
 #include "VmExit/InjectEvent.h"
 #include "VmExit/VmxBasicExitReasons.h"
+#include "VmCall/VmCall.h"
 #include "Vmcs/VmcsField.h"
 #include "Msr/MsrControlField.h"
+#include "Util.h"
 #include "Log/Log.h"
 #include <intrin.h>
+
+BOOLEAN
+VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
+{
+	BOOLEAN TerminateVmm = FALSE;
+	BOOLEAN SkipGuestRipAdvance = FALSE;
+
+	ULONG64 ExitReason = 0;
+	__vmx_vmread(Read_Only_Data_Fields::Exit_Reason, &ExitReason);
+
+	USHORT BasicExitReason = (USHORT)(ExitReason & 0xFFFF);
+
+	switch (BasicExitReason)
+	{
+	case EXIT_REASONS::EXIT_REASON_CPUID:
+		VmExit::HandleCpuid(Context);
+		break;
+
+	case EXIT_REASONS::EXIT_REASON_VMCALL:
+		TerminateVmm = VmExit::HandleVmCall(Context);
+		if (TerminateVmm)
+		{
+			return TRUE;
+		}
+		break;
+
+	case EXIT_REASONS::EXIT_REASON_INVD:
+		__wbinvd();
+		break;
+
+	case EXIT_REASONS::EXIT_REASON_RDMSR:
+		if (!VmExit::HandleRdmsr(Context)) SkipGuestRipAdvance = TRUE;
+		break;
+
+	case EXIT_REASONS::EXIT_REASON_WRMSR:
+		if (!VmExit::HandleWrmsr(Context)) SkipGuestRipAdvance = TRUE;
+		break;
+
+	case EXIT_REASONS::EXIT_REASON_XSETBV:
+		_xsetbv((ULONG)Context->Rcx, ((Context->Rdx & 0xFFFFFFFF) << 32) | (Context->Rax & 0xFFFFFFFF));
+		break;
+
+	default:
+		LogError("Unhandled VM-Exit reason: %u (0x%llX)", BasicExitReason, ExitReason);
+		break;
+	}
+
+	//LogInformation("VM-Exit handled. Reason: %u (0x%llX)", BasicExitReason, ExitReason);
+
+	if (!SkipGuestRipAdvance)
+	{
+		VmExit::AdvanceGuestRip();
+	}
+	return FALSE;
+}
+
+EXTERN_C BOOLEAN
+VmExitDispatcher(PGUEST_CONTEXT Context)
+{
+	return VmExit::VmExitDispatcher(Context);
+}
 
 VOID
 VmExit::AdvanceGuestRip()
@@ -38,12 +101,13 @@ VmExit::HandleCpuid(PGUEST_CONTEXT Context)
 	return;
 }
 
-VOID
+BOOLEAN
 VmExit::HandleVmCall(PGUEST_CONTEXT Context)
 {
-	UNREFERENCED_PARAMETER(Context);
-	LogInformation("VMCALL received from guest");
-	return;
+	if (Context->Rcx == VMCALL_STOP_HV) return VmCall::VmcallStopHv(Context);
+
+	LogInformation("VMCALL received from guest with unknown code: 0x%llX", Context->Rcx);
+	return FALSE;
 }
 
 BOOLEAN
@@ -133,61 +197,4 @@ VmExit::HandleWrmsr(PGUEST_CONTEXT Context)
 	}
 
 	return TRUE;
-}
-
-VOID
-VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
-{
-	BOOLEAN SkipGuestRipAdvance = FALSE;
-
-	ULONG64 ExitReason = 0;
-	__vmx_vmread(Read_Only_Data_Fields::Exit_Reason, &ExitReason);
-
-	USHORT BasicExitReason = (USHORT)(ExitReason & 0xFFFF);
-
-	switch (BasicExitReason)
-	{
-	case EXIT_REASONS::EXIT_REASON_CPUID:
-		VmExit::HandleCpuid(Context);
-		break;
-
-	case EXIT_REASONS::EXIT_REASON_VMCALL:
-		VmExit::HandleVmCall(Context);
-		break;
-
-	case EXIT_REASONS::EXIT_REASON_INVD:
-		__wbinvd();
-		break;
-
-	case EXIT_REASONS::EXIT_REASON_RDMSR:
-		if (!VmExit::HandleRdmsr(Context)) SkipGuestRipAdvance = TRUE;
-		break;
-
-	case EXIT_REASONS::EXIT_REASON_WRMSR:
-		if (!VmExit::HandleWrmsr(Context)) SkipGuestRipAdvance = TRUE;
-		break;
-
-	case EXIT_REASONS::EXIT_REASON_XSETBV:
-		_xsetbv((ULONG)Context->Rcx, ((Context->Rdx & 0xFFFFFFFF) << 32) | (Context->Rax & 0xFFFFFFFF));
-		break;
-
-	default:
-		LogError("Unhandled VM-Exit reason: %u (0x%llX)", BasicExitReason, ExitReason);
-		break;
-	}
-
-	//LogInformation("VM-Exit handled. Reason: %u (0x%llX)", BasicExitReason, ExitReason);
-
-	if (!SkipGuestRipAdvance)
-	{
-		VmExit::AdvanceGuestRip();
-	}
-	return;
-}
-
-EXTERN_C VOID
-VmExitDispatcher(PGUEST_CONTEXT Context)
-{
-	VmExit::VmExitDispatcher(Context);
-	return;
 }

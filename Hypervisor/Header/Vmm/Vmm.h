@@ -8,6 +8,8 @@ class Vmm
 public:
 	static VMM_STATE VmmState;
 
-	static NTSTATUS LoadVMM();	//return STATUS_SUCCESS / UNSUCCESSFUL
-	static NTSTATUS UnLoadVMM();	//return STATUS_SUCCESS / UNSUCCESSFUL, need to check Hypervisor is running or don't UnLoad
+	static NTSTATUS LoadVMM();
+	static NTSTATUS UnLoadVMM();
+	static VOID FreeVmmMemory();
+	static ULONG_PTR DisableVmxOperation(ULONG_PTR Argument);
 };

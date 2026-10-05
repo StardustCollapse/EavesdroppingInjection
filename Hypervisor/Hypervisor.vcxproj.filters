@@ -78,6 +78,9 @@
     <Filter Include="Code\Msr">
       <UniqueIdentifier>{e9263e90-e602-45d4-b25c-a1cb1c1dfbab}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Code\VmCall">
+      <UniqueIdentifier>{5ce7c9ed-721b-4e06-b10d-79f29e73c20b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Header\Driver\Driver.h">
@@ -195,6 +198,12 @@
     </ClCompile>
     <ClCompile Include="Code\VmExit\InjectEvent.cpp">
       <Filter>Code\VmExit</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\VmCall\VmCall.cpp">
+      <Filter>Code\VmCall</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Memory\PhysicalMemory.cpp">
+      <Filter>Code\Memory</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

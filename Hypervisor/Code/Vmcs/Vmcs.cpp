@@ -22,7 +22,7 @@ Vmcs::VmxClearVmcs(PVCPU_STATE CurrentCPU)
 	}
 	CurrentCPU->VmcsClearStatus = TRUE;
 
-	LogInformation("VMCS Clear Success");
+	LogInformation("VMCS Clear Successfully ");
 
 	return TRUE;
 }
@@ -94,6 +94,7 @@ Vmcs::VmxSetupControls(PVCPU_STATE CurrentCPU)
 	__vmx_vmwrite(Control_Fields::CR3_Target_Count, 0);
 	__vmx_vmwrite(Control_Fields::Exception_Bitmap, 0);
 	__vmx_vmwrite(Control_Fields::TSC_offset_Full, 0);
+	__vmx_vmwrite(Control_Fields::XSS_Exiting_Bitmap_Full, 0);
 
 	__vmx_vmwrite(Control_Fields::Page_Fault_Error_Code_Mask, 0);
 	__vmx_vmwrite(Control_Fields::Page_Fault_Error_Code_Match, 0);

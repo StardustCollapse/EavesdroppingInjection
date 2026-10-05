@@ -11,7 +11,7 @@ typedef struct __VMM_STATE
 			ULONG64 VmxSupported : 1;
 			ULONG64 VmmStarted : 1;
 			ULONG64 Reversed : 62;
-		}VmmFlagsBit;
+		}Bit;
 		ULONG64 Flags;
 	}VmmFlags;
 }VMM_STATE, * PVMM_STATE;

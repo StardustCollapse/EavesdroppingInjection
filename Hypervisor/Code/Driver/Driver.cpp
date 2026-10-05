@@ -1,5 +1,6 @@
 #include "Driver/Driver.h"
 #include "Vmm/Vmm.h"
+#include "Log/Log.h"
 
 PDEVICE_OBJECT Driver::DeviceObject = NULL;
 
@@ -28,8 +29,11 @@ Driver::DriverEntry(
 
     if (!NT_SUCCESS(status))
     {
+		LogError("Failed to create driver device. Status: 0x%X", status);
         return status;
     }
+
+    LogInformation("Driver Device created successfully");
 
     //set up the dispatch routines for the driver.
     for (ULONG64 Index = 0; Index <= IRP_MJ_MAXIMUM_FUNCTION; Index++)
@@ -46,9 +50,11 @@ Driver::DriverEntry(
 
     if (!NT_SUCCESS(status))
     {
+		LogError("Failed to create symbolic link. Status: 0x%X", status);
         IoDeleteDevice(Driver::DeviceObject);
 		return status;
     }
+	LogInformation("Symbolic link created successfully");
 
     Driver::DeviceObject->Flags |= DO_BUFFERED_IO;
     Driver::DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
@@ -72,4 +78,6 @@ Driver::DriverUnload(
         IoDeleteDevice(Driver::DeviceObject);
         Driver::DeviceObject = NULL;
     }
+
+	LogInformation("Driver unloaded successfully");
 }

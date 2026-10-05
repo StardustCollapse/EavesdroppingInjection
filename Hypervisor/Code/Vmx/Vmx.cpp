@@ -2,6 +2,7 @@
 #include "Vcpu/Vcpu.h"
 #include "Msr/Msr.h"
 #include "Memory/VirtualMemory.h"
+#include "Memory/PhysicalMemory.h"
 #include "Log/Log.h"
 #include "Register.h"
 
@@ -81,12 +82,10 @@ Vmx::PrepareVmxOperation()
 BOOLEAN
 Vmx::VmxInitializeVmxonRegion(PVCPU_STATE CurrentCPU)
 {
-	PHYSICAL_ADDRESS PhysicalAddressMax = { 0 };
-	PhysicalAddressMax.QuadPart = MAXULONG64;
 	CurrentCPU->VmxonAllocatedFailed = TRUE;
 
-	CurrentCPU->VmxonRegionVirtualAddress =
-		(ULONG_PTR)MmAllocateContiguousMemory(VMXON_SIZE, PhysicalAddressMax);
+	CurrentCPU->VmxonRegionVirtualAddress = 
+		(ULONG_PTR)PhysicalMemory::AllocateContiguousMemory(VMXON_SIZE);
 
 	if (CurrentCPU->VmxonRegionVirtualAddress == NULL)
 	{
@@ -113,12 +112,10 @@ Vmx::VmxInitializeVmxonRegion(PVCPU_STATE CurrentCPU)
 BOOLEAN
 Vmx::VmxInitializeVmcsRegion(PVCPU_STATE CurrentCPU)
 {
-	PHYSICAL_ADDRESS PhysicalAddressMax = { 0 };
-	PhysicalAddressMax.QuadPart = MAXULONG64;
 	CurrentCPU->VmcsAllocatedFailed = TRUE;
 
 	CurrentCPU->VmcsRegionVirtualAddress =
-		(ULONG_PTR)MmAllocateContiguousMemory(VMCS_SIZE, PhysicalAddressMax);
+		(ULONG_PTR)PhysicalMemory::AllocateContiguousMemory(VMCS_SIZE);
 
 	if (CurrentCPU->VmcsRegionVirtualAddress == NULL)
 	{
@@ -145,12 +142,10 @@ Vmx::VmxInitializeVmcsRegion(PVCPU_STATE CurrentCPU)
 BOOLEAN
 Vmx::VmxInitializeMsrBitmap(PVCPU_STATE CurrentCPU)
 {
-	PHYSICAL_ADDRESS PhysicalAddressMax = { 0 };
-	PhysicalAddressMax.QuadPart = MAXULONG64;
 	CurrentCPU->MsrBitmapAllocatedFailed = TRUE;
 
 	CurrentCPU->MsrBitmapVirtualAddress =
-		(ULONG_PTR)MmAllocateContiguousMemory(MSR_BITMAP_SIZE, PhysicalAddressMax);
+		(ULONG_PTR)PhysicalMemory::AllocateContiguousMemory(MSR_BITMAP_SIZE);
 
 	if (CurrentCPU->MsrBitmapVirtualAddress == NULL)
 	{

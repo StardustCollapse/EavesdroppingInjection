@@ -21,6 +21,15 @@ VirtualMemory::AllocateNonPagedPool(
 	return TRUE;
 }
 
+VOID
+VirtualMemory::FreeNonPagedPool(PVOID VirtualAddress)
+{
+	if (VirtualAddress != NULL)
+	{
+		ExFreePoolWithTag(VirtualAddress, Tag);
+	}
+}
+
 ULONG_PTR
 VirtualMemory::VirtualAddressToPhysicalAddress(PVOID VirtualAddress)
 {

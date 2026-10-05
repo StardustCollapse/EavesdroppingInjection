@@ -1,6 +1,7 @@
 #include "Vcpu/Vcpu.h"
 #include "Vmx/Vmx.h"
 #include "Vmcs/Vmcs.h"
+#include "Util.h"
 #include "Log/Log.h"
 
 PVCPU_STATE Vcpu::VcpuState = NULL;
@@ -16,19 +17,19 @@ Vcpu::InitializeVcpuState(PVOID GuestStack)
 	if (!Vmx::VmxEnterRootMode(CurrentVcpuState))
 	{
 		LogError("Failed to enter VMX root mode on processor %u", CurrentProcessorNumber);
-		return;
+		goto TurnOffVMX;
 	}
 
 	if (!Vmcs::VmxClearVmcs(CurrentVcpuState))
 	{
 		LogError("Failed to clear VMCS on processor %u", CurrentProcessorNumber);
-		return;
+		goto TurnOffVMX;
 	}
 
 	if (!Vmcs::VmxLoadVmcs(CurrentVcpuState))
 	{
 		LogError("Failed to load VMCS on processor %u", CurrentProcessorNumber);
-		return;
+		goto TurnOffVMX;
 	}
 
 	Vmcs::VmxSetupVmcs(CurrentVcpuState, GuestStack);
@@ -42,8 +43,18 @@ Vcpu::InitializeVcpuState(PVOID GuestStack)
 		__vmx_vmread(Read_Only_Data_Fields::VM_Instruction_Error, &ErrorCode);
 		LogError("VMLAUNCH failed on processor %u. Status: %u, Error code: 0x%llX",
 			CurrentProcessorNumber, Status, ErrorCode);
+	TurnOffVMX:
+		LogInformation("Turning off VMX operation on processor %u", CurrentProcessorNumber);
 		CurrentVcpuState->VmcsLaunchStatus = FALSE;
-		__vmx_off();
+		if (CurrentVcpuState->VmxonStatus)
+		{
+			__vmx_off();
+			CurrentVcpuState->VmxonStatus = FALSE;
+		}
+		if (__readcr4() & Util::Bit(13))
+		{
+			__writecr4(__readcr4() & ~Util::Bit(13));
+		}
 	}
 	return;
 }

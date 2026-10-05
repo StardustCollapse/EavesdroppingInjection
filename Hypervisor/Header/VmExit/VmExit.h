@@ -18,18 +18,24 @@ typedef struct _GUEST_CONTEXT
 	ULONG64 Rdx;
 	ULONG64 Rcx;
 	ULONG64 Rax;
+	ULONG64 GuestRip;
+	ULONG64 GuestCs;
+	ULONG64 GuestRflags;
+	ULONG64 GuestRsp;
+	ULONG64 GuestSs;
 } GUEST_CONTEXT, * PGUEST_CONTEXT;
 
 EXTERN_C VOID AsmVmExitHandler(VOID);
-EXTERN_C VOID VmExitDispatcher(PGUEST_CONTEXT Context);
+EXTERN_C BOOLEAN VmExitDispatcher(PGUEST_CONTEXT Context);
+EXTERN_C VOID AsmDisableVmxOperationVmcall(VOID);
 
 //Manage VmExit Handler
 class VmExit
 {
 public:
-	static VOID VmExitDispatcher(PGUEST_CONTEXT Context);
+	static BOOLEAN VmExitDispatcher(PGUEST_CONTEXT Context);
 	static VOID HandleCpuid(PGUEST_CONTEXT Context);
-	static VOID HandleVmCall(PGUEST_CONTEXT Context);
+	static BOOLEAN HandleVmCall(PGUEST_CONTEXT Context);
 	static BOOLEAN HandleRdmsr(PGUEST_CONTEXT Context);
 	static BOOLEAN HandleWrmsr(PGUEST_CONTEXT Context);
 	static VOID AdvanceGuestRip();

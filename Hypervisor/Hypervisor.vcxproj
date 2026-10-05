@@ -133,10 +133,12 @@
     <ClCompile Include="Code\Driver\Driver.cpp" />
     <ClCompile Include="Code\Driver\DriverDispatch.cpp" />
     <ClCompile Include="Code\Log\Log.cpp" />
+    <ClCompile Include="Code\Memory\PhysicalMemory.cpp" />
     <ClCompile Include="Code\Memory\VirtualMemory.cpp" />
     <ClCompile Include="Code\Msr\Msr.cpp" />
     <ClCompile Include="Code\Util.cpp" />
     <ClCompile Include="Code\Vcpu\Vcpu.cpp" />
+    <ClCompile Include="Code\VmCall\VmCall.cpp" />
     <ClCompile Include="Code\Vmcs\Vmcs.cpp" />
     <ClCompile Include="Code\VmExit\InjectEvent.cpp" />
     <ClCompile Include="Code\Vmm\Vmm.cpp" />
