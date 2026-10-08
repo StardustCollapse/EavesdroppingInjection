@@ -85,3 +85,11 @@ typedef union __SEGMENT_DESCRIPTORS_64BIT
 		ULONG64 HighPart;
 	} OctaPart;
 }SEGMENT_DESCRIPTOR, * PSEGMENT_DESCRIPTORS;
+
+#pragma pack(push, 1)
+typedef struct _PSEUDO_DESCRIPTOR_64
+{
+	USHORT Limit;
+	ULONG64 Base;
+} PSEUDO_DESCRIPTOR, * PPSEUDO_DESCRIPTOR;
+#pragma pack(pop)

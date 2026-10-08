@@ -27,17 +27,11 @@ AsmVmxContextSaveState PROC
 	push r14
 	push r15
 
-	mov rbp, rsp
+	mov rcx, rsp
 
-	and rsp, 0FFFFFFFFFFFFFFF0h
-	
-	sub rsp, 0100h
+	sub rsp, 028h
 
-	mov rcx, rbp
-	
 	call InitializeVcpuState
-
-	mov rsp, rbp
 
 	; int 3
 
@@ -47,7 +41,7 @@ AsmVmxContextSaveState ENDP
 
 AsmVmxContextRestoreState PROC
 	
-	;add rsp, 0100h
+	;add rsp, 028h
 
 	pop r15
 	pop r14
@@ -72,10 +66,12 @@ AsmVmxContextRestoreState PROC
 AsmVmxContextRestoreState ENDP
 
 AsmDisableVmxOperationVmcall PROC
+
 	mov rcx, 053544F505F4856h ; VMCALL_STOP_HV
 	vmcall
 	xor rax, rax
 	ret
+
 AsmDisableVmxOperationVmcall ENDP
 
 AsmVmExitHandler PROC

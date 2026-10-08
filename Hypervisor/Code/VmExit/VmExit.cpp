@@ -18,6 +18,7 @@ VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
 	ULONG64 ExitReason = 0;
 	__vmx_vmread(Read_Only_Data_Fields::Exit_Reason, &ExitReason);
 
+	// Bits 15:0 of this field contain the basic exit reason.
 	USHORT BasicExitReason = (USHORT)(ExitReason & 0xFFFF);
 
 	switch (BasicExitReason)

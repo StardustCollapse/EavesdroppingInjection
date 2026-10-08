@@ -2,6 +2,7 @@
 #include <ntifs.h>
 #include <intrin.h>
 #include "VmcsField.h"
+#include "SegmentRegister.h"
 #include "Vcpu/Vcpu.h"
 #include "VmExit/VmExit.h"
 
@@ -17,8 +18,12 @@ EXTERN_C ULONG64 AsmGetGdtBase(void);
 EXTERN_C ULONG64 AsmGetIdtBase(void);
 EXTERN_C USHORT AsmGetGdtLimit(void);
 EXTERN_C USHORT AsmGetIdtLimit(void);
-
 EXTERN_C ULONG64 AsmGetRflags(void);
+EXTERN_C VOID AsmSetGdt(PPSEUDO_DESCRIPTOR GdtDescriptor);
+EXTERN_C VOID AsmSetIdt(PPSEUDO_DESCRIPTOR IdtDescriptor);
+EXTERN_C VOID AsmSetDs(USHORT Selector);
+EXTERN_C VOID AsmSetEs(USHORT Selector);
+EXTERN_C VOID AsmSetLdtr(USHORT Selector);
 
 //Fill Vmcs Fields
 class Vmcs

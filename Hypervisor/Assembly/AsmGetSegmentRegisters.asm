@@ -12,6 +12,11 @@ PUBLIC AsmGetGdtLimit
 PUBLIC AsmGetIdtLimit
 
 PUBLIC AsmGetRflags
+PUBLIC AsmSetGdt
+PUBLIC AsmSetIdt
+PUBLIC AsmSetDs
+PUBLIC AsmSetEs
+PUBLIC AsmSetLdtr
 
 .code
 
@@ -107,5 +112,30 @@ AsmGetRflags PROC
 	pop rax
 	ret
 AsmGetRflags ENDP
+
+AsmSetGdt PROC
+	lgdt fword ptr [rcx]
+	ret
+AsmSetGdt ENDP
+
+AsmSetIdt PROC
+	lidt fword ptr [rcx]
+	ret
+AsmSetIdt ENDP
+
+AsmSetDs PROC
+	mov ds, cx
+	ret
+AsmSetDs ENDP
+
+AsmSetEs PROC
+	mov es, cx
+	ret
+AsmSetEs ENDP
+
+AsmSetLdtr PROC
+	lldt cx
+	ret
+AsmSetLdtr ENDP
 
 END

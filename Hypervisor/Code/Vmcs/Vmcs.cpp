@@ -48,6 +48,16 @@ Vmcs::VmxLoadVmcs(PVCPU_STATE CurrentCPU)
 	return TRUE;
 }
 
+
+VOID
+Vmcs::VmxSetupVmcs(PVCPU_STATE CurrentCPU, PVOID GuestStack)
+{
+	Vmcs::VmxSetupGuestState(GuestStack);
+	Vmcs::VmxSetupHostState(CurrentCPU);
+	Vmcs::VmxSetupControls(CurrentCPU);
+	return;
+}
+
 VOID
 Vmcs::VmxSetupControls(PVCPU_STATE CurrentCPU)
 {
@@ -196,15 +206,6 @@ Vmcs::VmxSetupGuestState(PVOID GuestStack)
 
 	// Disable shadow VMCS
 	__vmx_vmwrite(Guest_State_Fields::VMCS_Link_Pointer_Full, ~0ULL);
-	return;
-}
-
-VOID
-Vmcs::VmxSetupVmcs(PVCPU_STATE CurrentCPU, PVOID GuestStack)
-{
-	Vmcs::VmxSetupGuestState(GuestStack);
-	Vmcs::VmxSetupHostState(CurrentCPU);
-	Vmcs::VmxSetupControls(CurrentCPU);
 	return;
 }
 
