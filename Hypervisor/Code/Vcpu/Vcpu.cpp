@@ -32,7 +32,11 @@ Vcpu::InitializeVcpuState(PVOID GuestStack)
 		goto TurnOffVMX;
 	}
 
-	Vmcs::VmxSetupVmcs(CurrentVcpuState, GuestStack);
+	if (!Vmcs::VmxSetupVmcs(CurrentVcpuState, GuestStack))
+	{
+		LogError("Failed to setup VMCS on processor %u", CurrentProcessorNumber);
+		goto TurnOffVMX;
+	}
 
 	CurrentVcpuState->VmcsLaunchStatus = TRUE;
 

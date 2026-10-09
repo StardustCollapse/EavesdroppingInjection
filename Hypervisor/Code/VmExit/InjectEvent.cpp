@@ -8,9 +8,9 @@ InjectEvent::EventInjectInterruption(INTERRUPT_TYPE InterruptionType, EXCEPTION_
 {
 	INTERRUPT_INFORMATION InjectException = { 0 };
 	InjectException.Fields.Valid = TRUE;
-	InjectException.Fields.InterruptType = InterruptionType;
+	InjectException.Fields.InterruptionType = InterruptionType;
 	InjectException.Fields.Vector = Vector;
-	InjectException.Fields.DeliverCode = DeliverErrorCode;
+	InjectException.Fields.DeliverErrorCode = DeliverErrorCode;
 	__vmx_vmwrite(Control_Fields::VM_Entry_Interruption_Information_Field, InjectException.Flags);
 
 	if (DeliverErrorCode) {
@@ -22,7 +22,7 @@ InjectEvent::EventInjectInterruption(INTERRUPT_TYPE InterruptionType, EXCEPTION_
 VOID
 InjectEvent::EventInjectGeneralProtection()
 {
-	InjectEvent::EventInjectInterruption(INTERRUPT_TYPE_HARDWARE_EXCEPTION, EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, TRUE, 0);
+	InjectEvent::EventInjectInterruption(INTERRUPTION_TYPE_HARDWARE_EXCEPTION, EXCEPTION_VECTOR_GENERAL_PROTECTION, TRUE, 0);
 	ULONG64 ExitInstrLength;
 	__vmx_vmread(Read_Only_Data_Fields::VM_Exit_Instruction_Length, &ExitInstrLength);
 	__vmx_vmwrite(Control_Fields::VM_Entry_Instruction_Length, ExitInstrLength);

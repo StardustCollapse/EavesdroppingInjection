@@ -6,6 +6,7 @@
 #include "VmExit/VmExit.h"
 #include "Util.h"
 #include "Log/Log.h"
+#include "Ept/Ept.h"
 
 VMM_STATE Vmm::VmmState = { 0 };
 
@@ -40,6 +41,13 @@ Vmm::LoadVMM()
 	}
 
 	LogInformation("Vcpu memory allocated at virtual address: 0x%p", (PVOID)Vcpu::VcpuState);
+
+	if (Ept::InitializeEpt() == FALSE)
+	{
+		LogError("Failed to initialize EPT");
+		Vmm::FreeVmmMemory();
+		return STATUS_UNSUCCESSFUL;
+	}
 
 	for 
 	(
@@ -172,7 +180,10 @@ Vmm::FreeVmmMemory()
 	VirtualMemory::FreeNonPagedPool((PVOID)Vcpu::VcpuState);
 	Vcpu::VcpuState = NULL;
 
+	Ept::DestroyEpt();
+
 	LogInformation("All VMM memory is freed successfully");
+	return;
 }
 
 ULONG_PTR
@@ -185,11 +196,13 @@ Vmm::DisableVmxOperation(ULONG_PTR Argument)
 	{
 		AsmDisableVmxOperationVmcall();
 	}
+
 	if (Vcpu::VcpuState && Vcpu::VcpuState[CurrentProcessorNumber].VmxonStatus)
 	{
 		__vmx_off();
 		Vcpu::VcpuState[CurrentProcessorNumber].VmxonStatus = FALSE;
 	}
+
 	if (__readcr4() & Util::Bit(13))
 	{
 		__writecr4(__readcr4() & ~Util::Bit(13));

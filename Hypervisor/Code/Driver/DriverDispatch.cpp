@@ -44,7 +44,6 @@ Driver::DriverDeviceControl(
 
     switch (IoStackLocation->Parameters.DeviceIoControl.IoControlCode)
     {
-		//need to check Hypervisor is running or don't Load
         case IOCTL_HV_START:
             status = Vmm::LoadVMM();
             break;

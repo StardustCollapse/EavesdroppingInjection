@@ -144,6 +144,7 @@
     <ClCompile Include="Code\Vmm\Vmm.cpp" />
     <ClCompile Include="Code\Vmx\Vmx.cpp" />
     <ClCompile Include="Code\VmExit\VmExit.cpp" />
+    <ClCompile Include="Code\Ept\Ept.cpp" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="Assembly\AsmGetSegmentRegisters.asm" />

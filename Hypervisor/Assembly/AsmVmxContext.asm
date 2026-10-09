@@ -2,6 +2,8 @@ PUBLIC AsmVmxContextSaveState
 PUBLIC AsmVmxContextRestoreState
 PUBLIC AsmVmExitHandler
 PUBLIC AsmDisableVmxOperationVmcall
+PUBLIC AsmDisableVmxOperation
+PUBLIC AsmInvept
 
 EXTERN  InitializeVcpuState:PROC
 EXTERN  VmExitDispatcher:PROC
@@ -98,9 +100,6 @@ AsmVmExitHandler PROC
 	call VmExitDispatcher
 	add rsp, 20h
 
-	test al, al
-	jnz ExitVmx
-
 	pop r15
 	pop r14
 	pop r13
@@ -123,7 +122,16 @@ AsmVmExitHandler PROC
 	; If vmresume fails:
 	int 3
 
-ExitVmx:
+AsmVmExitHandler ENDP
+
+AsmDisableVmxOperation PROC
+
+	vmxoff
+
+	mov cr0, rcx
+	mov cr3, rdx
+	mov cr4, r8
+	mov rsp, r9
 
 	pop r15
 	pop r14
@@ -141,13 +149,26 @@ ExitVmx:
 	pop rcx
 	pop rax
 
-	; [rsp + 00h] = GuestRip
-	; [rsp + 08h] = GuestCs
-	; [rsp + 10h] = GuestRflags
-	; [rsp + 18h] = GuestRsp
 	; [rsp + 20h] = GuestSs
+	; [rsp + 18h] = GuestRsp
+	; [rsp + 10h] = GuestRflags
+	; [rsp + 08h] = GuestCs
+	; [rsp + 00h] = GuestRip
+
 	iretq
 
-AsmVmExitHandler ENDP
+AsmDisableVmxOperation ENDP
+
+AsmInvept PROC
+	invept rcx, oword ptr [rdx]
+	jz Error
+	jc Error
+	xor rax, rax
+	ret
+Error:
+	;the error information not detail
+	mov rax, 1
+	ret
+AsmInvept ENDP
 
 END

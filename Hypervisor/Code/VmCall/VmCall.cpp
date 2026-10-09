@@ -8,7 +8,7 @@
 #include <intrin.h>
 
 
-BOOLEAN 
+VOID 
 VmCall::VmcallStopHv(PGUEST_CONTEXT Context)
 {
 	ULONG64 GuestRip = 0;
@@ -29,6 +29,7 @@ VmCall::VmcallStopHv(PGUEST_CONTEXT Context)
 
 	ULONG64 GuestFsBase = 0;
 	ULONG64 GuestGsBase = 0;
+	ULONG64 Guest_Kernel_GS_Base = 0;
 
 	ULONG64 GuestGdtrBase = 0;
 	ULONG64 GuestGdtrLimit = 0;
@@ -52,6 +53,7 @@ VmCall::VmcallStopHv(PGUEST_CONTEXT Context)
 
 	__vmx_vmread(Guest_State_Fields::Guest_FS_Base, &GuestFsBase);
 	__vmx_vmread(Guest_State_Fields::Guest_GS_Base, &GuestGsBase);
+	Guest_Kernel_GS_Base = __readmsr(MSRs::IA32_KERNEL_GS_BASE);
 
 	__vmx_vmread(Guest_State_Fields::Guest_GDTR_Base, &GuestGdtrBase);
 	__vmx_vmread(Guest_State_Fields::Guest_GDTR_Limit, &GuestGdtrLimit);
@@ -72,40 +74,47 @@ VmCall::VmcallStopHv(PGUEST_CONTEXT Context)
 	Context->GuestSs = GuestSs;
 	Context->Rax = STATUS_SUCCESS;
 
-	// 1. Restore GDTR and IDTR (Crucial for PatchGuard: VM-Exit sets GDTR.Limit and IDTR.Limit to 0xFFFF)
-	PSEUDO_DESCRIPTOR Gdtr = { 0 };
+	// Restore GDTR and IDTR (Crucial for PatchGuard: VM-Exit sets GDTR.Limit and IDTR.Limit to 0xFFFF)
+	PSEUDO_DESCRIPTOR_64 Gdtr = { 0 };
 	Gdtr.Base = GuestGdtrBase;
 	Gdtr.Limit = (USHORT)GuestGdtrLimit;
 	AsmSetGdt(&Gdtr);
 
-	PSEUDO_DESCRIPTOR Idtr = { 0 };
+	PSEUDO_DESCRIPTOR_64 Idtr = { 0 };
 	Idtr.Base = GuestIdtrBase;
 	Idtr.Limit = (USHORT)GuestIdtrLimit;
 	AsmSetIdt(&Idtr);
 
-	// 2. Restore Segment Selectors (DS, ES, and LDTR if present)
 	AsmSetDs((USHORT)GuestDs);
 	AsmSetEs((USHORT)GuestEs);
 	if (GuestLdtr != 0) AsmSetLdtr((USHORT)GuestLdtr);
 
-	// 3. Restore FS and GS base MSRs
-	__writemsr((ULONG)MSRs::IA32_FS_BASE, GuestFsBase);
-	__writemsr((ULONG)MSRs::IA32_GS_BASE, GuestGsBase);
+	__writemsr(MSRs::IA32_FS_BASE, GuestFsBase);
+	__writemsr(MSRs::IA32_GS_BASE, GuestGsBase);
+	__writemsr(MSRs::IA32_KERNEL_GS_BASE, Guest_Kernel_GS_Base);
 
-	// 3. Restore DR7
 	__writedr(7, GuestDr7);
 
-	// 4. Restore original guest CR3
-	__writecr3(GuestCr3);
+	//__writecr3(GuestCr3);
 
-	// 5. Restore Guest CR0
-	__writecr0(GuestCr0);
+	//__writecr0(GuestCr0);
 
-	// 6. Disable VMX operation
-	__vmx_off();
+	//__vmx_off();
 
-	// 7. Restore Guest CR4 (ensuring CR4.VMXE bit 13 is cleared)
-	__writecr4(GuestCr4 & ~Util::Bit(13));
+	//// ensure CR4.VMXE bit 13 is cleared
+	//__writecr4(GuestCr4 & ~Util::Bit(13));
+
+
+	//PULONG64 IRETQ_FRAME = (PULONG64)_AddressOfReturnAddress();
+	//ULONG64 IRETQ_FRAME[6];
+
+	//// replacement shadow space for iretq
+	//IRETQ_FRAME[0] = Context->Rax;
+	//IRETQ_FRAME[1] = Context->GuestRip;
+	//IRETQ_FRAME[2] = Context->GuestCs;
+	//IRETQ_FRAME[3] = Context->GuestRflags;
+	//IRETQ_FRAME[4] = Context->GuestRsp;
+	//IRETQ_FRAME[5] = Context->GuestSs;
 
 	if (Vcpu::VcpuState)
 	{
@@ -113,5 +122,7 @@ VmCall::VmcallStopHv(PGUEST_CONTEXT Context)
 		Vcpu::VcpuState[CurrentProcessorNumber].VmcsLaunchStatus = FALSE;
 	}
 
-	return TRUE;
+	AsmDisableVmxOperation(GuestCr0, GuestCr3, GuestCr4 & ~Util::Bit(13), Context);
+
+	return;
 }

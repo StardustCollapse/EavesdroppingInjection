@@ -7,12 +7,12 @@
 #include "Msr/MsrControlField.h"
 #include "Util.h"
 #include "Log/Log.h"
+#include "Ept/Ept.h"
 #include <intrin.h>
 
 BOOLEAN
 VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
 {
-	BOOLEAN TerminateVmm = FALSE;
 	BOOLEAN SkipGuestRipAdvance = FALSE;
 
 	ULONG64 ExitReason = 0;
@@ -28,11 +28,7 @@ VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
 		break;
 
 	case EXIT_REASONS::EXIT_REASON_VMCALL:
-		TerminateVmm = VmExit::HandleVmCall(Context);
-		if (TerminateVmm)
-		{
-			return TRUE;
-		}
+		VmExit::HandleVmCall(Context);
 		break;
 
 	case EXIT_REASONS::EXIT_REASON_INVD:
@@ -51,8 +47,31 @@ VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
 		_xsetbv((ULONG)Context->Rcx, ((Context->Rdx & 0xFFFFFFFF) << 32) | (Context->Rax & 0xFFFFFFFF));
 		break;
 
+	case EXIT_REASONS::EXIT_REASON_EPT_VIOLATION:
+	{
+		SkipGuestRipAdvance = TRUE;
+		ULONG64 GuestPhysicalAddress = 0;
+		ULONG64 ExitQualification = 0;
+		__vmx_vmread(Read_Only_Data_Fields::Guest_Physical_Address_Full, &GuestPhysicalAddress);
+		__vmx_vmread(Read_Only_Data_Fields::Exit_Qualification, &ExitQualification);
+		if (!Ept::HandleEptViolation(Context, GuestPhysicalAddress, ExitQualification))
+		{
+			LogError("Unhandled EPT Violation at GPA: 0x%llx, Qualification: 0x%llx", GuestPhysicalAddress, ExitQualification);
+		}
+		break;
+	}
+
+	case EXIT_REASONS::EXIT_REASON_EPT_MISCONFIGURATION:
+	{
+		SkipGuestRipAdvance = TRUE;
+		ULONG64 GuestPhysicalAddress = 0;
+		__vmx_vmread(Read_Only_Data_Fields::Guest_Physical_Address_Full, &GuestPhysicalAddress);
+		Ept::HandleEptMisconfiguration(Context, GuestPhysicalAddress);
+		break;
+	}
+
 	default:
-		LogError("Unhandled VM-Exit reason: %u (0x%llX)", BasicExitReason, ExitReason);
+		LogError("Unhandled VM-Exit reason: %u (0x%llx)", BasicExitReason, ExitReason);
 		break;
 	}
 
@@ -105,7 +124,7 @@ VmExit::HandleCpuid(PGUEST_CONTEXT Context)
 BOOLEAN
 VmExit::HandleVmCall(PGUEST_CONTEXT Context)
 {
-	if (Context->Rcx == VMCALL_STOP_HV) return VmCall::VmcallStopHv(Context);
+	if (Context->Rcx == VMCALL_STOP_HV) VmCall::VmcallStopHv(Context);
 
 	LogInformation("VMCALL received from guest with unknown code: 0x%llX", Context->Rcx);
 	return FALSE;

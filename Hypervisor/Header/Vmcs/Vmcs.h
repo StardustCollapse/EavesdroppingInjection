@@ -19,8 +19,8 @@ EXTERN_C ULONG64 AsmGetIdtBase(void);
 EXTERN_C USHORT AsmGetGdtLimit(void);
 EXTERN_C USHORT AsmGetIdtLimit(void);
 EXTERN_C ULONG64 AsmGetRflags(void);
-EXTERN_C VOID AsmSetGdt(PPSEUDO_DESCRIPTOR GdtDescriptor);
-EXTERN_C VOID AsmSetIdt(PPSEUDO_DESCRIPTOR IdtDescriptor);
+EXTERN_C VOID AsmSetGdt(PPSEUDO_DESCRIPTOR_64 GdtDescriptor);
+EXTERN_C VOID AsmSetIdt(PPSEUDO_DESCRIPTOR_64 IdtDescriptor);
 EXTERN_C VOID AsmSetDs(USHORT Selector);
 EXTERN_C VOID AsmSetEs(USHORT Selector);
 EXTERN_C VOID AsmSetLdtr(USHORT Selector);
@@ -31,13 +31,13 @@ class Vmcs
 public:
 	static BOOLEAN VmxClearVmcs(PVCPU_STATE CurrentCPU);
 	static BOOLEAN VmxLoadVmcs(PVCPU_STATE CurrentCPU);
-	static VOID VmxSetupVmcs(PVCPU_STATE CurrentCPU, PVOID GuestStack);
+	static BOOLEAN VmxSetupVmcs(PVCPU_STATE CurrentCPU, PVOID GuestStack);
 
-	static VOID VmxSetupGuestState(PVOID GuestStack);
-	static VOID VmxSetupHostState(PVCPU_STATE CurrentCPU);
-	static VOID VmxSetupControls(PVCPU_STATE CurrentCPU);
+	static BOOLEAN VmxSetupGuestState(PVOID GuestStack);
+	static BOOLEAN VmxSetupHostState(PVCPU_STATE CurrentCPU);
+	static BOOLEAN VmxSetupControls(PVCPU_STATE CurrentCPU);
 
-	static ULONG AdjustControl(ULONG DesiredValue, ULONG MsrIndex);
+	static BOOLEAN AdjustControl(ULONG DesiredValue, ULONG MsrIndex, PULONG ActualValue);
 	static ULONG64 GetSegmentBase(ULONG64 GdtBase, USHORT Selector);
 	static BOOLEAN LoadGuestSegment(ULONG64 GdtBase, USHORT Selector, UCHAR SegmentRegister);
 };

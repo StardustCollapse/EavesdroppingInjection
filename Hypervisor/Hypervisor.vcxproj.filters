@@ -81,6 +81,9 @@
     <Filter Include="Code\VmCall">
       <UniqueIdentifier>{5ce7c9ed-721b-4e06-b10d-79f29e73c20b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Code\Ept">
+      <UniqueIdentifier>{7a8b9c0d-1e2f-4a5b-9c8d-0e1f2a3b4c5e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Header\Driver\Driver.h">
@@ -204,6 +207,9 @@
     </ClCompile>
     <ClCompile Include="Code\Memory\PhysicalMemory.cpp">
       <Filter>Code\Memory</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Ept\Ept.cpp">
+      <Filter>Code\Ept</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

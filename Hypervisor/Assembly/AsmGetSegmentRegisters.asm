@@ -10,8 +10,8 @@ PUBLIC AsmGetGdtBase
 PUBLIC AsmGetIdtBase
 PUBLIC AsmGetGdtLimit
 PUBLIC AsmGetIdtLimit
-
 PUBLIC AsmGetRflags
+
 PUBLIC AsmSetGdt
 PUBLIC AsmSetIdt
 PUBLIC AsmSetDs
