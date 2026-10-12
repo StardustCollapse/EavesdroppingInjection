@@ -8,12 +8,18 @@
 #include "Util.h"
 #include "Log/Log.h"
 #include "Ept/Ept.h"
+#include "EptHook/EptHook.h"
 #include <intrin.h>
 
 BOOLEAN
 VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
 {
 	BOOLEAN SkipGuestRipAdvance = FALSE;
+
+	// Read actual Guest state from VMCS
+	__vmx_vmread(Guest_State_Fields::Guest_RIP, &Context->GuestRip);
+	__vmx_vmread(Guest_State_Fields::Guest_RSP, &Context->GuestRsp);
+	__vmx_vmread(Guest_State_Fields::Guest_RFLAGS, &Context->GuestRflags);
 
 	ULONG64 ExitReason = 0;
 	__vmx_vmread(Read_Only_Data_Fields::Exit_Reason, &ExitReason);
@@ -67,6 +73,36 @@ VmExit::VmExitDispatcher(PGUEST_CONTEXT Context)
 		ULONG64 GuestPhysicalAddress = 0;
 		__vmx_vmread(Read_Only_Data_Fields::Guest_Physical_Address_Full, &GuestPhysicalAddress);
 		Ept::HandleEptMisconfiguration(Context, GuestPhysicalAddress);
+		break;
+	}
+
+	case EXIT_REASONS::EXIT_REASON_MONITOR_TRAP_FLAG:
+	{
+		SkipGuestRipAdvance = TRUE;
+		EptHook::HandleMonitorTrapFlag(Context);
+		break;
+	}
+
+	case EXIT_REASONS::EXIT_REASON_INVEPT:
+	{
+		INVEPT_DESCRIPTOR Descriptor = { 0 };
+		ULONG Type = (ULONG)Context->Rcx;
+		if (Type == INVEPT_SINGLE_CONTEXT && Context->Rdx != 0)
+		{
+			PINVEPT_DESCRIPTOR GuestDescriptor = (PINVEPT_DESCRIPTOR)Context->Rdx;
+			Descriptor.EptPointer = GuestDescriptor->EptPointer;
+			AsmInvept(INVEPT_SINGLE_CONTEXT, &Descriptor);
+		}
+		else
+		{
+			AsmInvept(INVEPT_ALL_CONTEXTS, &Descriptor);
+		}
+
+		// Clear CF (bit 0) and ZF (bit 6) in Guest RFLAGS to indicate success to guest
+		ULONG64 GuestRflags = 0;
+		__vmx_vmread(Guest_State_Fields::Guest_RFLAGS, &GuestRflags);
+		GuestRflags &= ~(Util::Bit(0) | Util::Bit(6));
+		__vmx_vmwrite(Guest_State_Fields::Guest_RFLAGS, GuestRflags);
 		break;
 	}
 

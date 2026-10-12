@@ -7,6 +7,9 @@
 #include "Util.h"
 #include "Log/Log.h"
 #include "Ept/Ept.h"
+#include "EptHook/EptHook.h"
+#include "EptHook/HookComponents.h"
+#include "EptHook/HookGuard.h"
 
 VMM_STATE Vmm::VmmState = { 0 };
 
@@ -48,6 +51,10 @@ Vmm::LoadVMM()
 		Vmm::FreeVmmMemory();
 		return STATUS_UNSUCCESSFUL;
 	}
+
+	EptHook::Initialize();
+
+	HookCompoents::InitializeHook();
 
 	for 
 	(
@@ -121,12 +128,23 @@ Vmm::UnLoadVMM()
 		return STATUS_SUCCESS;
 	}
 
-	LogInformation("Stopping Hypervisor on all logical processors...");
+	LogInformation("Initiating Hypervisor safe unload sequence (Active hook threads: %ld)...", HookGuard::GetActiveHookCount());
 
-	// Disable VMX operation on all processors
+	// Quiesce all hooks: reject any new hook entries and wait for threads to drain
+	HookGuard::BeginQuiescence();
+	HookGuard::WaitForDraining();
+	LogInformation("All active hook threads drained successfully (Remaining active: %ld).", HookGuard::GetActiveHookCount());
+
+	EptHook::UnhookAll();
+	LogInformation("All EPT hooks unhooked and TLBs flushed across all cores.");
+
+	LARGE_INTEGER Delay;
+	Delay.QuadPart = -500000; // 50 ms
+	KeDelayExecutionThread(KernelMode, FALSE, &Delay);
+
+	LogInformation("Disabling VMX on all processors via VMCALL_STOP_HV...");
 	KeIpiGenericCall(Vmm::DisableVmxOperation, 0);
 
-	// Free all allocated memory
 	Vmm::FreeVmmMemory();
 
 	Vmm::VmmState.VmmFlags.Bit.VmmStarted = FALSE;
@@ -180,6 +198,8 @@ Vmm::FreeVmmMemory()
 	VirtualMemory::FreeNonPagedPool((PVOID)Vcpu::VcpuState);
 	Vcpu::VcpuState = NULL;
 
+	HookCompoents::DestroyHook();
+	EptHook::Destroy();
 	Ept::DestroyEpt();
 
 	LogInformation("All VMM memory is freed successfully");

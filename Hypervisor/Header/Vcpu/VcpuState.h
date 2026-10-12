@@ -18,4 +18,7 @@ typedef struct __VCPU_STATE
 	BOOLEAN VmcsClearStatus;
 	BOOLEAN VmcsLoadStatus;
 	BOOLEAN VmcsLaunchStatus;
-}VCPU_STATE, * PVCPU_STATE;
+	ULONG PrimaryProcControls;
+	ULONG PrimaryProcControlsWithMtf;
+	PVOID CurrentActiveHook;
+} VCPU_STATE, * PVCPU_STATE;

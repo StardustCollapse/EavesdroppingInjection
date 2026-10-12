@@ -82,7 +82,7 @@
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)Header;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Header;$(ProjectDir)Dependency;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>Default</LanguageStandard>
     </ClCompile>
     <Link>
@@ -94,7 +94,7 @@
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)Header;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Header;$(ProjectDir)Dependency;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>Default</LanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -102,9 +102,12 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Dependency\HDE\hde64.h" />
+    <ClInclude Include="Dependency\HDE\table64.h" />
     <ClInclude Include="Header\Driver\Driver.h" />
     <ClInclude Include="Header\Driver\Ioctl.h" />
     <ClInclude Include="Header\EptHook\EptHook.h" />
+    <ClInclude Include="Header\EptHook\HookComponents.h" />
     <ClInclude Include="Header\Ept\Ept.h" />
     <ClInclude Include="Header\Log\Log.h" />
     <ClInclude Include="Header\Memory\PhysicalMemory.h" />
@@ -127,11 +130,15 @@
     <ClInclude Include="Header\Vmm\VmmState.h" />
     <ClInclude Include="Header\Vmx\SupportVmx.h" />
     <ClInclude Include="Header\Vmx\Vmx.h" />
+    <ClInclude Include="Header\Ssdt\Ssdt.h" />
+    <ClInclude Include="Header\EptHook\HookGuard.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\DriverEntry.cpp" />
     <ClCompile Include="Code\Driver\Driver.cpp" />
     <ClCompile Include="Code\Driver\DriverDispatch.cpp" />
+    <ClCompile Include="Code\EptHook\HookComponents.cpp" />
+    <ClCompile Include="Code\EptHook\HookGuard.cpp" />
     <ClCompile Include="Code\Log\Log.cpp" />
     <ClCompile Include="Code\Memory\PhysicalMemory.cpp" />
     <ClCompile Include="Code\Memory\VirtualMemory.cpp" />
@@ -145,6 +152,9 @@
     <ClCompile Include="Code\Vmx\Vmx.cpp" />
     <ClCompile Include="Code\VmExit\VmExit.cpp" />
     <ClCompile Include="Code\Ept\Ept.cpp" />
+    <ClCompile Include="Code\EptHook\EptHook.cpp" />
+    <ClCompile Include="Code\Ssdt\Ssdt.cpp" />
+    <ClCompile Include="Dependency\HDE\hde64.c" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="Assembly\AsmGetSegmentRegisters.asm" />

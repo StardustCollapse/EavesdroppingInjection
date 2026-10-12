@@ -84,6 +84,27 @@
     <Filter Include="Code\Ept">
       <UniqueIdentifier>{7a8b9c0d-1e2f-4a5b-9c8d-0e1f2a3b4c5e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Code\EptHook">
+      <UniqueIdentifier>{8b9c0d1e-2f3a-4b5c-8d9e-1f2a3b4c5d6e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header\Ssdt">
+      <UniqueIdentifier>{7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Code\Ssdt">
+      <UniqueIdentifier>{8d9e0f1a-2b3c-4d5e-6f7a-8b9c0d1e2f3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependency">
+      <UniqueIdentifier>{4e5944bf-9417-4897-9ff5-0c530514721c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependency\HDE">
+      <UniqueIdentifier>{04026b19-663a-44b9-bd1b-f3533fe33910}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependency\HDE\src">
+      <UniqueIdentifier>{b50cb3ed-69b3-4c4a-ad6a-a5eda8ce732b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependency\HDE\includes">
+      <UniqueIdentifier>{8d0da1cc-08a5-4b21-96f3-c6dc8252c60c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Header\Driver\Driver.h">
@@ -111,6 +132,9 @@
       <Filter>Header\Ept</Filter>
     </ClInclude>
     <ClInclude Include="Header\EptHook\EptHook.h">
+      <Filter>Header\EptHook</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\EptHook\HookGuard.h">
       <Filter>Header\EptHook</Filter>
     </ClInclude>
     <ClInclude Include="Header\Memory\VirtualMemory.h">
@@ -161,6 +185,15 @@
     <ClInclude Include="Header\VmExit\VmxBasicExitReasons.h">
       <Filter>Header\VmExit</Filter>
     </ClInclude>
+    <ClInclude Include="Dependency\HDE\hde64.h">
+      <Filter>Dependency\HDE\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="Dependency\HDE\table64.h">
+      <Filter>Dependency\HDE\includes</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Ssdt\Ssdt.h">
+      <Filter>Header\Ssdt</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\DriverEntry.cpp">
@@ -210,6 +243,18 @@
     </ClCompile>
     <ClCompile Include="Code\Ept\Ept.cpp">
       <Filter>Code\Ept</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\EptHook\EptHook.cpp">
+      <Filter>Code\EptHook</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\EptHook\HookGuard.cpp">
+      <Filter>Code\EptHook</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Ssdt\Ssdt.cpp">
+      <Filter>Code\Ssdt</Filter>
+    </ClCompile>
+    <ClCompile Include="Dependency\HDE\hde64.c">
+      <Filter>Dependency\HDE\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

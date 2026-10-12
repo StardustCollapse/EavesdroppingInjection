@@ -37,6 +37,9 @@ public:
 	static BOOLEAN VmxSetupHostState(PVCPU_STATE CurrentCPU);
 	static BOOLEAN VmxSetupControls(PVCPU_STATE CurrentCPU);
 
+	static BOOLEAN EnableMonitorTrapFlag();
+	static BOOLEAN DisableMonitorTrapFlag();
+
 	static BOOLEAN AdjustControl(ULONG DesiredValue, ULONG MsrIndex, PULONG ActualValue);
 	static ULONG64 GetSegmentBase(ULONG64 GdtBase, USHORT Selector);
 	static BOOLEAN LoadGuestSegment(ULONG64 GdtBase, USHORT Selector, UCHAR SegmentRegister);

@@ -206,12 +206,25 @@ Vmcs::VmxSetupControls(PVCPU_STATE CurrentCPU)
 	}
 	__vmx_vmwrite(Control_Fields::Pin_Based_VM_Execution_Controls, PinBasedControls);
 
+	ULONG PrimaryProcMsr = UseTrueMsrs ? MSRs::IA32_VMX_TRUE_PROCBASED_CTLS : MSRs::IA32_VMX_PROCBASED_CTLS;
+
+	// Verify CPU supports Monitor Trap Flag capability upfront
+	MSR_INFORMATION PrimaryProcMsrInfo;
+	PrimaryProcMsrInfo.QuadPart = __readmsr(PrimaryProcMsr);
+	if (!(PrimaryProcMsrInfo.HighPart & VM_Execution_Controls::PRIMARY_PROCESSOR_BASED_MONITOR_TRAP_FLAG))
+	{
+		LogError("PRIMARY_PROCESSOR_BASED_MONITOR_TRAP_FLAG Not Support Capability");
+		return FALSE;
+	}
+
 	ULONG PrimaryProcControls = VM_Execution_Controls::PRIMARY_PROCESSOR_BASED_ACTIVATE_SECONDARY_CONTROLS | VM_Execution_Controls::PRIMARY_PROCESSOR_BASED_USE_MSR_BITMAPS;
-	if (!Vmcs::AdjustControl(PrimaryProcControls, UseTrueMsrs ? MSRs::IA32_VMX_TRUE_PROCBASED_CTLS : MSRs::IA32_VMX_PROCBASED_CTLS, &PrimaryProcControls))
+	if (!Vmcs::AdjustControl(PrimaryProcControls, PrimaryProcMsr, &PrimaryProcControls))
 	{
 		LogError("PROCBASED_CTLS MSR Not Support Capability");
 		return FALSE;
 	}
+	CurrentCPU->PrimaryProcControls = PrimaryProcControls;
+	CurrentCPU->PrimaryProcControlsWithMtf = PrimaryProcControls | VM_Execution_Controls::PRIMARY_PROCESSOR_BASED_MONITOR_TRAP_FLAG;
 	__vmx_vmwrite(Control_Fields::Primary_Processor_Based_VM_Execution_Controls, PrimaryProcControls);
 
 	ULONG SecondaryProcControls = VM_Execution_Controls::SECONDARY_PROCESSOR_BASED_ENABLE_RDTSCP | VM_Execution_Controls::SECONDARY_PROCESSOR_BASED_ENABLE_INVPCID;
@@ -384,6 +397,34 @@ Vmcs::AdjustControl(ULONG DesiredValue, ULONG MsrIndex, PULONG ActualValue)
 	}
 
 	*ActualValue = AdjustedValue | MsrValue.LowPart;
+
+	return TRUE;
+}
+
+BOOLEAN
+Vmcs::EnableMonitorTrapFlag()
+{
+	ULONG CurrentCpu = KeGetCurrentProcessorNumberEx(NULL);
+	UCHAR Status = __vmx_vmwrite(Control_Fields::Primary_Processor_Based_VM_Execution_Controls, Vcpu::VcpuState[CurrentCpu].PrimaryProcControlsWithMtf);
+	if (Status != 0)
+	{
+		LogError("Failed to enable MTF in VMCS. Error code: %u", Status);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+BOOLEAN
+Vmcs::DisableMonitorTrapFlag()
+{
+	ULONG CurrentCpu = KeGetCurrentProcessorNumberEx(NULL);
+	UCHAR Status = __vmx_vmwrite(Control_Fields::Primary_Processor_Based_VM_Execution_Controls, Vcpu::VcpuState[CurrentCpu].PrimaryProcControls);
+	if (Status != 0)
+	{
+		LogError("Failed to disable MTF in VMCS. Error code: %u", Status);
+		return FALSE;
+	}
 
 	return TRUE;
 }

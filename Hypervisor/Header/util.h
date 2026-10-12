@@ -1,5 +1,7 @@
 #pragma once
-#include "ntifs.h"
+#include <ntifs.h>
+
+#define MAX_WAIT 64
 
 class Util
 {
@@ -14,6 +16,13 @@ public:
 
 	static VOID SetBit(PUCHAR Value, ULONG64 BitPosition);
 	static ULONG64 FindSystemDirectoryTableBase();
+
+	static VOID AcquireLock(volatile LONG* Lock);
+	static VOID AcquireMonitorLock(volatile LONG* Lock);
+	static VOID ReleaseLock(volatile LONG* Lock);
+
+	static struct _SYSTEM_SERVICE_TABLE* GetSsdtTable();
+	static PVOID GetSsdtFunctionAddress(ULONG SystemServiceNumber);
 };
 
 
