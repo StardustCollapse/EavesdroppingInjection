@@ -378,6 +378,7 @@ EXTERN_C PVOID PostHookOnEntry(
 	Frame->Thread = CurrentThread;
 	Frame->CallerRsp = CallerRsp;
 	Frame->OriginalReturnRip = OriginalReturnRip;
+	Frame->ReturnRipSlot = pCallerReturnRipSlot;
 	Frame->Entry = Entry;
 
 	if (pSavedArgs != NULL)
@@ -603,7 +604,11 @@ EptHook::UnhookPostHook(PVOID TargetFunction)
 
 	RemoveEntryList(&Entry->ListEntry);
 
+	// Remove underlying EPT Hook
 	EptHook::Unhook(TargetFunction);
+
+	// Revert stack return addresses on the spot for in-flight/blocking threads
+	EptHook::RevertPostHookFrames(Entry);
 
 	if (Entry->EntryThunk != NULL)
 	{
@@ -617,12 +622,54 @@ EptHook::UnhookPostHook(PVOID TargetFunction)
 }
 
 VOID
+EptHook::RevertPostHookFrames(PEPT_POST_HOOK_ENTRY TargetEntry)
+{
+	for (ULONG b = 0; b < POST_HOOK_HASH_BUCKETS; b++)
+	{
+		PPOST_HOOK_BUCKET Bucket = &EptHook::PostHookBuckets[b];
+		Util::AcquireLock(&Bucket->Lock);
+
+		PPOST_HOOK_CALL_FRAME Prev = NULL;
+		PPOST_HOOK_CALL_FRAME Frame = Bucket->Head;
+		while (Frame != NULL)
+		{
+			PPOST_HOOK_CALL_FRAME Next = Frame->Next;
+			if (TargetEntry == NULL || Frame->Entry == TargetEntry)
+			{
+				if (Frame->ReturnRipSlot != NULL && *Frame->ReturnRipSlot == (PVOID)AsmPostHookReturnStub)
+				{
+					*Frame->ReturnRipSlot = (PVOID)Frame->OriginalReturnRip;
+				}
+				if (Prev == NULL)
+				{
+					Bucket->Head = Next;
+				}
+				else
+				{
+					Prev->Next = Next;
+				}
+				RtlZeroMemory(Frame, sizeof(POST_HOOK_CALL_FRAME));
+				InterlockedPushEntrySList(&EptHook::FreeFrameListHead, &Frame->SListEntry);
+			}
+			else
+			{
+				Prev = Frame;
+			}
+			Frame = Next;
+		}
+		Util::ReleaseLock(&Bucket->Lock);
+	}
+}
+
+VOID
 EptHook::UnhookAll()
 {
 	if (!EptHook::Initialized)
 	{
 		return;
 	}
+
+	EptHook::RevertPostHookFrames(NULL);
 
 	while (!IsListEmpty(&EptHook::PostHookList))
 	{

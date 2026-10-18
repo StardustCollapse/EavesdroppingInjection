@@ -73,6 +73,7 @@ typedef struct alignas(16) _POST_HOOK_CALL_FRAME
 	volatile PVOID Thread;
 	volatile ULONG64 CallerRsp;
 	ULONG64 OriginalReturnRip;
+	PVOID* ReturnRipSlot;               // Pointer to stack slot containing return address
 	PEPT_POST_HOOK_ENTRY Entry;
 	ULONG64 Rcx;
 	ULONG64 Rdx;
@@ -120,7 +121,6 @@ public:
 	static SLIST_HEADER FreeFrameListHead;
 	static PPOST_HOOK_CALL_FRAME PostHookFramePool;
 	static POST_HOOK_BUCKET PostHookBuckets[POST_HOOK_HASH_BUCKETS];
-
 	static BOOLEAN Initialize();
 	static VOID Destroy();
 
@@ -131,6 +131,9 @@ public:
 	// Traps target function entry via stealth EPT, rewrites stack return address to AsmPostHookReturnStub
 	static BOOLEAN PostHook(PVOID TargetFunction, PVOID HookFunction);
 	static BOOLEAN UnhookPostHook(PVOID TargetFunction);
+
+	// Revert stack return addresses on the spot for in-flight/blocking threads
+	static VOID RevertPostHookFrames(PEPT_POST_HOOK_ENTRY TargetEntry = NULL);
 
 	static BOOLEAN HandleEptViolation(PGUEST_CONTEXT Context, ULONG64 GuestPhysicalAddress, EPT_VIOLATION_QUALIFICATION Qualification);
 	static BOOLEAN HandleMonitorTrapFlag(PGUEST_CONTEXT Context);
