@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.37314.3 d17.14
+VisualStudioVersion = 17.14.37314.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Hypervisor", "Hypervisor\Hypervisor.vcxproj", "{F68BB0B1-6191-8069-DDAB-055D10F0E024}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EIHvCore", "Hypervisor\Hypervisor.vcxproj", "{F68BB0B1-6191-8069-DDAB-055D10F0E024}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ControlCenter", "ControlCenter\ControlCenter.vcxproj", "{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,6 +27,14 @@ Global
 		{F68BB0B1-6191-8069-DDAB-055D10F0E024}.Release|x64.ActiveCfg = Release|x64
 		{F68BB0B1-6191-8069-DDAB-055D10F0E024}.Release|x64.Build.0 = Release|x64
 		{F68BB0B1-6191-8069-DDAB-055D10F0E024}.Release|x64.Deploy.0 = Release|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Debug|ARM64.ActiveCfg = Debug|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Debug|ARM64.Build.0 = Debug|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Debug|x64.ActiveCfg = Debug|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Debug|x64.Build.0 = Debug|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Release|ARM64.ActiveCfg = Release|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Release|ARM64.Build.0 = Release|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Release|x64.ActiveCfg = Release|x64
+		{E2B102E3-1BB6-4FF4-8530-FF0A3CCF66D2}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

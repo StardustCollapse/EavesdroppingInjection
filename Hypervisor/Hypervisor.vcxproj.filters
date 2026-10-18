@@ -194,6 +194,9 @@
     <ClInclude Include="Header\Ssdt\Ssdt.h">
       <Filter>Header\Ssdt</Filter>
     </ClInclude>
+    <ClInclude Include="Header\EptHook\HookComponents.h">
+      <Filter>Header</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\DriverEntry.cpp">
@@ -255,6 +258,9 @@
     </ClCompile>
     <ClCompile Include="Dependency\HDE\hde64.c">
       <Filter>Dependency\HDE\src</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\EptHook\HookComponents.cpp">
+      <Filter>Code</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
