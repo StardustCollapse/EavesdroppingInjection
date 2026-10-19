@@ -188,6 +188,7 @@ HookCompoents::NtQuerySystemInformationPostHook(PGUEST_CONTEXT Context, ULONG64 
 				*(PSYSTEM_PROCESS_INFORMATION)Context->Rdx = { 0 };
 				static volatile LONG s_QueryCount = 0;
 				LONG Count = InterlockedIncrement(&s_QueryCount);
+				UNREFERENCED_PARAMETER(Count);
 				LogInformation("NtQuerySystemInformation [PostHook #%ld]: Status = 0x%08X, Buffer = %p, CallerRip = %p",
 					Count, Status, (PVOID)Context->Rdx, (PVOID)Context->GuestRip);
 			}

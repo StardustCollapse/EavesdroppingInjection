@@ -32,7 +32,7 @@ int main()
 	}
 
 	std::cout << "========================================\n";
-	std::cout << "       EIHvCore Control Center          \n";
+	std::cout << "          EIHvControlCenter             \n";
 	std::cout << "========================================\n";
 	std::cout << "[+] Connected to EIHvCore driver successfully.\n\n";
 
