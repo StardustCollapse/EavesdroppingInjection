@@ -195,7 +195,7 @@
       <Filter>Header\Ssdt</Filter>
     </ClInclude>
     <ClInclude Include="Header\EptHook\HookComponents.h">
-      <Filter>Header</Filter>
+      <Filter>Header\EptHook</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -260,7 +260,7 @@
       <Filter>Dependency\HDE\src</Filter>
     </ClCompile>
     <ClCompile Include="Code\EptHook\HookComponents.cpp">
-      <Filter>Code</Filter>
+      <Filter>Code\EptHook</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
