@@ -180,7 +180,7 @@ EavesdroppingInjection/
     │   ├── Vmm/                 # Hypervisor 全域狀態與生命週期管理宣告 (Vmm.h, Dpc.h)
     │   ├── Vmx/                 # Intel VMX 規格支援與巨集宣告 (Vmx.h, SupportVmx.h)
     │   ├── Register.h           # 通用 CPU 暫存器結構與 RFLAGS 欄位
-    │   └── util.h               # 工具函式宣告 (CR 存取、CPUID 檢測)
+    │   └── util.h               # 工具函式宣告 (CR 存取)
     │
     └── Code/                    # C/C++ 實作程式碼目錄
         ├── DriverEntry.cpp      # 驅動程式統一入口點

@@ -6,6 +6,7 @@ PUBLIC AsmDisableVmxOperation
 PUBLIC AsmInvept
 PUBLIC AsmPostHookCommonEntry
 PUBLIC AsmPostHookReturnStub
+PUBLIC AsmCommonRetStub
 
 EXTERN  InitializeVcpuState:PROC
 EXTERN  VmExitDispatcher:PROC
@@ -311,5 +312,13 @@ AsmPostHookReturnStub PROC
     ; Jump to caller's original return address!
     jmp r11
 AsmPostHookReturnStub ENDP
+
+; ==============================================================================
+; AsmCommonRetStub
+; Used when PreHook decides to skip actual execution of target function.
+; ==============================================================================
+AsmCommonRetStub PROC
+    ret
+AsmCommonRetStub ENDP
 
 END

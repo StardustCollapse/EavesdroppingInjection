@@ -5,9 +5,6 @@
 #include "Util.h"
 #include "Log/Log.h"
 
-fnExAllocatePool2Hook HookCompoents::OriginalExAllocatePool2 = NULL;
-fnNtCreateFile HookCompoents::OriginalNtCreateFile = NULL;
-fnNtQuerySystemInformation HookCompoents::OriginalNtQuerySystemInformation = NULL;
 
 VOID
 HookCompoents::InitializeHook()
@@ -21,7 +18,7 @@ HookCompoents::InitializeHook()
 	}
 	else
 	{
-		EptHook::Hook(NtCreateFile, NtCreateFileHook, (PVOID*)&OriginalNtCreateFile);
+		EPT_FILTER_HOOK(NtCreateFile, NtCreateFilePreHook);
 	}
 
 	PVOID NtQuerySystemInformation = Util::GetSsdtFunctionAddress(0x36);
@@ -31,10 +28,10 @@ HookCompoents::InitializeHook()
 	}
 	else
 	{
-		EptHook::PostHook(NtQuerySystemInformation, (PVOID)NtQuerySystemInformationPostHook);
+		EPT_RETURN_HOOK(NtQuerySystemInformation, NtQuerySystemInformationPostHook);
 	}
 
-	EptHook::Hook(ExAllocatePool2, ExAllocatePool2Hook, (PVOID *)&OriginalExAllocatePool2);
+	EPT_ENTRY_HOOK(ExAllocatePool2, ExAllocatePool2PreHook);
 	return;
 }
 
@@ -44,27 +41,22 @@ HookCompoents::DestroyHook()
 	HookGuard::Destroy();
 }
 
-PVOID
-HookCompoents::ExAllocatePool2Hook(
-	POOL_TYPE	PoolType,
-	SIZE_T      NumberOfBytes,
-	ULONG       Tag
-)
+VOID
+HookCompoents::ExAllocatePool2PreHook(PGUEST_CONTEXT Context)
 {
-	SCOPED_HOOK_GUARD(Guard);
-	if (!Guard.IsAcquired())
-	{
-		return OriginalExAllocatePool2(PoolType, NumberOfBytes, Tag);
-	}
+	POOL_TYPE PoolType      = (POOL_TYPE)Context->Rcx;
+	SIZE_T    NumberOfBytes = (SIZE_T)Context->Rdx;
+	ULONG     Tag           = (ULONG)Context->R8;
+	UNREFERENCED_PARAMETER(PoolType);
+	UNREFERENCED_PARAMETER(NumberOfBytes);
+	UNREFERENCED_PARAMETER(Tag);
 
-	// Sample logging: 1 out of every 1024 allocations to eliminate DbgPrintEx bottleneck and lag
 	static volatile LONG s_AllocCount = 0;
 	LONG Count = InterlockedIncrement(&s_AllocCount);
 	if ((Count & 0x3FF) == 1)
 	{
-		LogInformation("ExAllocatePool2 (Sampled #%ld): Tag = 0x%X, Bytes = %I64u, Type = %d", Count, Tag, (ULONG64)NumberOfBytes, PoolType);
+		LogInformation("ExAllocatePool2 (Sampled #%ld): Tag = 0x%X, Bytes = %llu, Type = %d", Count, Tag, (ULONG64)NumberOfBytes, PoolType);
 	}
-	return OriginalExAllocatePool2(PoolType, NumberOfBytes, Tag);
 }
 
 static VOID InspectNtCreateFileParameters(KPROCESSOR_MODE PreviousMode, PHANDLE FileHandle, POBJECT_ATTRIBUTES ObjectAttributes)
@@ -122,60 +114,21 @@ static VOID InspectNtCreateFileParameters(KPROCESSOR_MODE PreviousMode, PHANDLE 
 	}
 }
 
-NTSTATUS
-HookCompoents::NtCreateFileHook(
-	PHANDLE            FileHandle,
-	ACCESS_MASK        DesiredAccess,
-	POBJECT_ATTRIBUTES ObjectAttributes,
-	PIO_STATUS_BLOCK   IoStatusBlock,
-	PLARGE_INTEGER     AllocationSize,
-	ULONG              FileAttributes,
-	ULONG              ShareAccess,
-	ULONG              CreateDisposition,
-	ULONG              CreateOptions,
-	PVOID              EaBuffer,
-	ULONG              EaLength
-)
+BOOLEAN
+HookCompoents::NtCreateFilePreHook(PGUEST_CONTEXT Context)
 {
-	SCOPED_HOOK_GUARD(Guard);
-	if (!Guard.IsAcquired())
-	{
-		return OriginalNtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes,
-			ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-	}
+	PHANDLE            FileHandle       = (PHANDLE)Context->Rcx;
+	POBJECT_ATTRIBUTES ObjectAttributes = (POBJECT_ATTRIBUTES)Context->R8;
 
 	KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
 	InspectNtCreateFileParameters(PreviousMode, FileHandle, ObjectAttributes);
 
-	return OriginalNtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes,
-		ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+	// Return FALSE: continue normal execution (do not skip actual NtCreateFile)
+	return FALSE;
 }
-
-NTSTATUS
-HookCompoents::NtQuerySystemInformationHook(
-	SYSTEM_INFORMATION_CLASS SystemInformationClass,
-	PVOID                    SystemInformation,
-	ULONG                    SystemInformationLength,
-	PULONG                   ReturnLength
-)
-{
-	SCOPED_HOOK_GUARD(Guard);
-	if (!Guard.IsAcquired() || (SystemInformationClass != SystemProcessInformation))
-	{
-		return OriginalNtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-	}
-	
-	return OriginalNtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
-}
-
 ULONG64
 HookCompoents::NtQuerySystemInformationPostHook(PGUEST_CONTEXT Context, ULONG64 Result)
 {
-	SCOPED_HOOK_GUARD(Guard);
-	if (!Guard.IsAcquired())
-	{
-		return Result;
-	}
 
 	NTSTATUS Status = (NTSTATUS)Result;
 	if (NT_SUCCESS(Status) && Context != NULL)
@@ -185,16 +138,16 @@ HookCompoents::NtQuerySystemInformationPostHook(PGUEST_CONTEXT Context, ULONG64 
 		{
 			__try
 			{
-				*(PSYSTEM_PROCESS_INFORMATION)Context->Rdx = { 0 };
+				// Sample logging of queried process information (do not zero buffer to prevent breaking caller/SMAP fault)
 				static volatile LONG s_QueryCount = 0;
 				LONG Count = InterlockedIncrement(&s_QueryCount);
 				UNREFERENCED_PARAMETER(Count);
-				LogInformation("NtQuerySystemInformation [PostHook #%ld]: Status = 0x%08X, Buffer = %p, CallerRip = %p",
+				LogInformation("NtQuerySystemInformation [PostHook #%ld]: Status = 0x%08x, Buffer = %p, CallerRip = %p",
 					Count, Status, (PVOID)Context->Rdx, (PVOID)Context->GuestRip);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogError("NtQuerySystemInformationPostHook: Exception 0x%X accessing buffer %p",
+				LogError("NtQuerySystemInformationPostHook: Exception 0x%x accessing buffer %p",
 					GetExceptionCode(), (PVOID)Context->Rdx);
 			}
 		}

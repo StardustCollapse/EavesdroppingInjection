@@ -26,7 +26,7 @@ public:
 };
 
 
-/* reference from HyperDbg */
+/* reference from Hypervisor-From-Scratch */
 typedef struct _NT_KPROCESS
 	{
 	DISPATCHER_HEADER Header;
@@ -34,4 +34,4 @@ typedef struct _NT_KPROCESS
 	ULONG_PTR DirectoryTableBase;
 	UCHAR Data[1];
 }NT_KPROCESS, * PNT_KPROCESS;
-/* reference from HyperDbg */
+/* reference from Hypervisor-From-Scratch */

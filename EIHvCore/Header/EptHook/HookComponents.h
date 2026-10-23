@@ -33,29 +33,8 @@ public:
 	static VOID InitializeHook();
 	static VOID DestroyHook();
 private:
-	static fnExAllocatePool2Hook OriginalExAllocatePool2;
-	static fnNtCreateFile OriginalNtCreateFile;
-    static fnNtQuerySystemInformation OriginalNtQuerySystemInformation;
-	static PVOID ExAllocatePool2Hook(POOL_TYPE PoolType, SIZE_T NumberOfBytes, ULONG Tag);
-	static NTSTATUS NtCreateFileHook(
-		PHANDLE            FileHandle,
-		ACCESS_MASK        DesiredAccess,
-		POBJECT_ATTRIBUTES ObjectAttributes,
-		PIO_STATUS_BLOCK   IoStatusBlock,
-		PLARGE_INTEGER     AllocationSize,
-		ULONG              FileAttributes,
-		ULONG              ShareAccess,
-		ULONG              CreateDisposition,
-		ULONG              CreateOptions,
-		PVOID              EaBuffer,
-		ULONG              EaLength
-	);
-    static NTSTATUS NtQuerySystemInformationHook(
-        SYSTEM_INFORMATION_CLASS SystemInformationClass,
-        PVOID                    SystemInformation,
-        ULONG                    SystemInformationLength,
-        PULONG                   ReturnLength
-    );
+	static VOID ExAllocatePool2PreHook(PGUEST_CONTEXT Context);
+	static BOOLEAN NtCreateFilePreHook(PGUEST_CONTEXT Context);
     static ULONG64 NtQuerySystemInformationPostHook(PGUEST_CONTEXT Context, ULONG64 Result);
 };
 

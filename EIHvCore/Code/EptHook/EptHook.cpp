@@ -1,4 +1,4 @@
-#include "EptHook/EptHook.h"
+﻿#include "EptHook/EptHook.h"
 #include "Memory/PhysicalMemory.h"
 #include "Memory/VirtualMemory.h"
 #include "Vcpu/Vcpu.h"
@@ -12,13 +12,16 @@
 LIST_ENTRY EptHook::HookList = { 0 };
 LIST_ENTRY EptHook::PostHookList = { 0 };
 BOOLEAN EptHook::Initialized = FALSE;
+SLIST_HEADER EptHook::ChunkListHead = { 0 };
 SLIST_HEADER EptHook::FreeFrameListHead = { 0 };
-PPOST_HOOK_CALL_FRAME EptHook::PostHookFramePool = NULL;
-POST_HOOK_BUCKET EptHook::PostHookBuckets[POST_HOOK_HASH_BUCKETS] = { 0 };
+PPOST_HOOK_BUCKET EptHook::PostHookBuckets = NULL;
+ULONG EptHook::PostHookBucketCount = 0;
+ULONG EptHook::PostHookBucketMask = 0;
 volatile LONG alignas(64) EptHook::EptViolationLock = 0;
 
+#pragma region Initialize
 BOOLEAN
-EptHook::Initialize()
+EptHook::Initialize(ULONG BucketCount)
 {
 	if (EptHook::Initialized)
 	{
@@ -28,36 +31,84 @@ EptHook::Initialize()
 	InitializeListHead(&EptHook::HookList);
 	InitializeListHead(&EptHook::PostHookList);
 
-	PVOID PoolBuffer = NULL;
-	if (!VirtualMemory::AllocateNonPagedPool(&PoolBuffer, sizeof(POST_HOOK_CALL_FRAME) * POST_HOOK_MAX_FRAMES, FALSE))
+	InitializeSListHead(&EptHook::ChunkListHead);
+	InitializeSListHead(&EptHook::FreeFrameListHead);
+
+	if (BucketCount < POST_HOOK_MIN_BUCKETS) BucketCount = POST_HOOK_MIN_BUCKETS;
+	else if (BucketCount > POST_HOOK_MAX_BUCKETS) BucketCount = POST_HOOK_MAX_BUCKETS;
+
+	ULONG Power = 1;
+	while (Power < BucketCount) Power <<= 1;
+	BucketCount = Power;
+
+	// Dynamically allocate Hash Buckets
+	SIZE_T TotalSize = sizeof(POST_HOOK_BUCKET) * BucketCount;
+	PVOID Buffer = NULL;
+	if (!VirtualMemory::AllocateNonPagedPool(&Buffer, TotalSize, FALSE))
 	{
-		LogError("Initialize: Failed to allocate PostHookFramePool");
+		LogError("Initialize: Failed to allocate PostHookBuckets pool (%llu bytes)", (ULONG64)TotalSize);
 		return FALSE;
 	}
-	RtlZeroMemory(PoolBuffer, sizeof(POST_HOOK_CALL_FRAME) * POST_HOOK_MAX_FRAMES);
-	EptHook::PostHookFramePool = (PPOST_HOOK_CALL_FRAME)PoolBuffer;
+	RtlZeroMemory(Buffer, TotalSize);
 
-	InitializeSListHead(&EptHook::FreeFrameListHead);
-	for (ULONG i = 0; i < POST_HOOK_MAX_FRAMES; i++)
-	{
-		InterlockedPushEntrySList(&EptHook::FreeFrameListHead, &EptHook::PostHookFramePool[i].SListEntry);
-	}
+	EptHook::PostHookBuckets = (PPOST_HOOK_BUCKET)Buffer;
+	EptHook::PostHookBucketCount = BucketCount;
+	EptHook::PostHookBucketMask = BucketCount - 1;
 
-	// Initialize Hash Buckets
-	for (ULONG i = 0; i < POST_HOOK_HASH_BUCKETS; i++)
+	for (ULONG i = 0; i < BucketCount; i++)
 	{
 		EptHook::PostHookBuckets[i].Lock = 0;
 		EptHook::PostHookBuckets[i].Head = NULL;
 	}
 
+	// Allocate initial dynamic call frame chunk
+	if (!EptHook::AllocateMoreFrames(POST_HOOK_INITIAL_FRAMES))
+	{
+		LogError("Initialize: Failed to allocate initial PostHook frames");
+		VirtualMemory::FreeNonPagedPool(Buffer);
+		EptHook::PostHookBuckets = NULL;
+		EptHook::PostHookBucketCount = 0;
+		EptHook::PostHookBucketMask = 0;
+		return FALSE;
+	}
+
 	EptHook::EptViolationLock = 0;
 	EptHook::Initialized = TRUE;
 
-	LogInformation("EPT Hook initialized successfully (Post-Hook Hash Table: %d buckets, %d preallocated frames)",
-		POST_HOOK_HASH_BUCKETS, POST_HOOK_MAX_FRAMES);
+	LogInformation("EPT Hook initialized successfully (Post-Hook Hash Table: %d buckets [%llu KB dynamic], Dynamic Frames: %d initial)",
+		BucketCount, (ULONG64)(TotalSize / 1024), POST_HOOK_INITIAL_FRAMES);
 	return TRUE;
 }
 
+BOOLEAN
+EptHook::AllocateMoreFrames(ULONG FrameCount)
+{
+	SIZE_T TotalSize = sizeof(POST_HOOK_CHUNK) + sizeof(POST_HOOK_CALL_FRAME) * FrameCount;
+	PVOID ChunkBuffer = NULL;
+	if (!VirtualMemory::AllocateNonPagedPool(&ChunkBuffer, TotalSize, FALSE))
+	{
+		LogError("AllocateMoreFrames: Failed to allocate non-paged pool (%llu bytes)", (ULONG64)TotalSize);
+		return FALSE;
+	}
+	RtlZeroMemory(ChunkBuffer, TotalSize);
+
+	PPOST_HOOK_CHUNK Chunk = (PPOST_HOOK_CHUNK)ChunkBuffer;
+	Chunk->FrameCount = FrameCount;
+	Chunk->Frames = (PPOST_HOOK_CALL_FRAME)((PUCHAR)ChunkBuffer + sizeof(POST_HOOK_CHUNK));
+
+	InterlockedPushEntrySList(&EptHook::ChunkListHead, &Chunk->SListEntry);
+
+	PPOST_HOOK_CALL_FRAME Frames = Chunk->Frames;
+	for (ULONG i = 0; i < FrameCount; i++)
+	{
+		InterlockedPushEntrySList(&EptHook::FreeFrameListHead, &Frames[i].SListEntry);
+	}
+
+	return TRUE;
+}
+#pragma endregion
+
+#pragma region Destroy
 VOID
 EptHook::Destroy()
 {
@@ -68,17 +119,201 @@ EptHook::Destroy()
 
 	EptHook::UnhookAll();
 
-	if (EptHook::PostHookFramePool != NULL)
+	// Free all dynamically allocated frame chunks
+	PSLIST_ENTRY ChunkEntry = NULL;
+	while ((ChunkEntry = InterlockedPopEntrySList(&EptHook::ChunkListHead)) != NULL)
 	{
-		VirtualMemory::FreeNonPagedPool(EptHook::PostHookFramePool);
-		EptHook::PostHookFramePool = NULL;
+		PPOST_HOOK_CHUNK Chunk = CONTAINING_RECORD(ChunkEntry, POST_HOOK_CHUNK, SListEntry);
+		VirtualMemory::FreeNonPagedPool(Chunk);
 	}
+
+	// Free dynamically allocated hash buckets
+	if (EptHook::PostHookBuckets != NULL)
+	{
+		VirtualMemory::FreeNonPagedPool(EptHook::PostHookBuckets);
+		EptHook::PostHookBuckets = NULL;
+	}
+	EptHook::PostHookBucketCount = 0;
+	EptHook::PostHookBucketMask = 0;
 
 	EptHook::Initialized = FALSE;
 	LogInformation("EPT Hook destroyed");
 	return;
 }
 
+NTSTATUS
+EptHook::Unhook(PVOID TargetFunction)
+{
+	if (!EptHook::Initialized || !TargetFunction)
+	{
+		return STATUS_INVALID_PARAMETER;
+	}
+
+	PEPT_HOOK_ENTRY Entry = EptHook::FindHookEntryByAddress(TargetFunction);
+	if (Entry == NULL)
+	{
+		return STATUS_NOT_FOUND;
+	}
+
+	RemoveEntryList(&Entry->ListEntry);
+
+	// Check if any other hook in the list still shares the same OriginalPfn
+	BOOLEAN PageStillShared = (EptHook::FindHookEntryByPfn(Entry->OriginalPfn) != NULL);
+
+	// Restore original page
+	if (!PageStillShared)
+	{
+		Entry->TargetPte->Fields.PageFrameNumber = Entry->OriginalPfn;
+		Entry->TargetPte->Fields.Read = 1;
+		Entry->TargetPte->Fields.Write = 1;
+		Entry->TargetPte->Fields.Execute = 1;
+
+		if (Vcpu::VcpuState && Vcpu::VcpuState[0].VmcsLaunchStatus)
+		{
+			KeIpiGenericCall(Ept::InveptSingleContext, 0);
+		}
+
+		if (Entry->FakePageVirtualAddress != NULL)
+		{
+			PhysicalMemory::FreeContiguousMemory(Entry->FakePageVirtualAddress);
+			Entry->FakePageVirtualAddress = NULL;
+		}
+	}
+	else
+	{
+		RtlCopyMemory((PUCHAR)Entry->FakePageVirtualAddress + Entry->PageOffset, Entry->OriginalBytes, Entry->OriginalBytesSize);
+	}
+
+	if (Entry->OriginalTrampoline != NULL)
+	{
+		VirtualMemory::FreeNonPagedPool(Entry->OriginalTrampoline);
+		Entry->OriginalTrampoline = NULL;
+	}
+
+	LogInformation("EPT Hook removed from %p", TargetFunction);
+	VirtualMemory::FreeNonPagedPool(Entry->OriginalBytes);
+	VirtualMemory::FreeNonPagedPool(Entry);
+	return STATUS_SUCCESS;
+}
+
+// To call this function safely, ensure a sufficient delay has passed
+BOOLEAN
+EptHook::UnhookPostHook(PVOID TargetFunction)
+{
+	if (!EptHook::Initialized || !TargetFunction)
+	{
+		return FALSE;
+	}
+
+	PEPT_POST_HOOK_ENTRY Entry = EptHook::FindPostHookEntryByAddress(TargetFunction);
+	if (Entry == NULL)
+	{
+		return FALSE;
+	}
+
+	RemoveEntryList(&Entry->ListEntry);
+
+	// Remove underlying EPT Hook
+	EptHook::Unhook(TargetFunction);
+
+	// Revert stack return addresses on the spot for in-flight/blocking threads
+	EptHook::RevertPostHookFrames(Entry);
+
+	if (Entry->EntryThunk != NULL)
+	{
+		VirtualMemory::FreeNonPagedPool(Entry->EntryThunk);
+		Entry->EntryThunk = NULL;
+	}
+
+	LogInformation("Post-Hook removed from %p", TargetFunction);
+	VirtualMemory::FreeNonPagedPool(Entry);
+	return TRUE;
+}
+
+VOID
+EptHook::RevertPostHookFrames(PEPT_POST_HOOK_ENTRY TargetEntry)
+{
+	PPOST_HOOK_BUCKET Buckets = EptHook::PostHookBuckets;
+	ULONG BucketCount = EptHook::PostHookBucketCount;
+	if (Buckets == NULL || BucketCount == 0)
+	{
+		return;
+	}
+
+	for (ULONG b = 0; b < BucketCount; b++)
+	{
+		PPOST_HOOK_BUCKET Bucket = &Buckets[b];
+		Util::AcquireLock(&Bucket->Lock);
+
+		PPOST_HOOK_CALL_FRAME Prev = NULL;
+		PPOST_HOOK_CALL_FRAME Frame = Bucket->Head;
+		while (Frame != NULL)
+		{
+			PPOST_HOOK_CALL_FRAME Next = Frame->Next;
+			if (TargetEntry == NULL || Frame->Entry == TargetEntry)
+			{
+				__try
+				{
+					if (Frame->ReturnRipSlot != NULL && *Frame->ReturnRipSlot == (PVOID)AsmPostHookReturnStub)
+					{
+						*Frame->ReturnRipSlot = (PVOID)Frame->OriginalReturnRip;
+					}
+				}
+				__except (EXCEPTION_EXECUTE_HANDLER)
+				{
+					LogError("Exception reverting frame ReturnRipSlot %p", Frame->ReturnRipSlot);
+				}
+				if (Prev == NULL)
+				{
+					Bucket->Head = Next;
+				}
+				else
+				{
+					Prev->Next = Next;
+				}
+				RtlZeroMemory(Frame, sizeof(POST_HOOK_CALL_FRAME));
+				InterlockedPushEntrySList(&EptHook::FreeFrameListHead, &Frame->SListEntry);
+			}
+			else
+			{
+				Prev = Frame;
+			}
+			Frame = Next;
+		}
+		Util::ReleaseLock(&Bucket->Lock);
+	}
+}
+
+VOID
+EptHook::UnhookAll()
+{
+	if (!EptHook::Initialized)
+	{
+		return;
+	}
+
+	EptHook::RevertPostHookFrames(NULL);
+
+	while (!IsListEmpty(&EptHook::PostHookList))
+	{
+		PLIST_ENTRY Flink = EptHook::PostHookList.Flink;
+		PEPT_POST_HOOK_ENTRY PostEntry = CONTAINING_RECORD(Flink, EPT_POST_HOOK_ENTRY, ListEntry);
+		EptHook::UnhookPostHook(PostEntry->TargetFunction);
+	}
+
+	while (!IsListEmpty(&EptHook::HookList))
+	{
+		PLIST_ENTRY Flink = EptHook::HookList.Flink;
+		PEPT_HOOK_ENTRY Entry = CONTAINING_RECORD(Flink, EPT_HOOK_ENTRY, ListEntry);
+		EptHook::Unhook(Entry->TargetVirtualAddress);
+	}
+
+	LogInformation("All EPT Hooks and Post-Hooks unhooked successfully");
+	return;
+}
+#pragma endregion
+
+#pragma region Find
 PEPT_HOOK_ENTRY
 EptHook::FindHookEntryByPfn(ULONG64 Pfn)
 {
@@ -130,7 +365,9 @@ EptHook::FindPostHookEntryByAddress(PVOID TargetAddress)
 
 	return NULL;
 }
+#pragma endregion
 
+#pragma region Hook
 NTSTATUS
 EptHook::Hook(PVOID TargetFunction, PVOID HookHandler, PVOID* OriginalFunction)
 {
@@ -153,8 +390,8 @@ EptHook::Hook(PVOID TargetFunction, PVOID HookHandler, PVOID* OriginalFunction)
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	ULONG64 OriginalPfn = PhysicalAddress >> 12;
-	ULONG PageOffset = (ULONG)(PhysicalAddress & 0xFFFULL);
+	ULONG64 OriginalPfn = EPT_PAGE_FRAME_NUMBER(PhysicalAddress);
+	ULONG PageOffset = EPT_PAGE_OFFSET(PhysicalAddress);
 
 	PEPT_PTE TargetPte = Ept::GetPte(PhysicalAddress);
 	if (TargetPte == NULL)
@@ -225,7 +462,7 @@ EptHook::Hook(PVOID TargetFunction, PVOID HookHandler, PVOID* OriginalFunction)
 		RtlCopyMemory(Entry->FakePageVirtualAddress, AlignedTargetVa, PAGE_SIZE);
 
 		ULONG64 FakePhysicalAddress = VirtualMemory::VirtualAddressToPhysicalAddress(Entry->FakePageVirtualAddress);
-		Entry->FakePfn = FakePhysicalAddress >> 12;
+		Entry->FakePfn = EPT_PAGE_FRAME_NUMBER(FakePhysicalAddress);
 	}
 
 	// Create Trampoline if requested
@@ -282,67 +519,12 @@ EptHook::Hook(PVOID TargetFunction, PVOID HookHandler, PVOID* OriginalFunction)
 
 	if (Vcpu::VcpuState && Vcpu::VcpuState[0].VmcsLaunchStatus)
 	{
-		KeIpiGenericCall(Ept::InveptAllContexts, 0);
+		KeIpiGenericCall(Ept::InveptSingleContext, 0);
 	}
 
 	LogInformation("EPT Hook placed on %p -> Handler : %p (Original PFN: 0x%llx, Fake PFN: 0x%llx)",
 		TargetFunction, HookHandler, OriginalPfn, Entry->FakePfn);
 
-	return STATUS_SUCCESS;
-}
-
-NTSTATUS
-EptHook::Unhook(PVOID TargetFunction)
-{
-	if (!EptHook::Initialized || !TargetFunction)
-	{
-		return STATUS_INVALID_PARAMETER;
-	}
-
-	PEPT_HOOK_ENTRY Entry = EptHook::FindHookEntryByAddress(TargetFunction);
-	if (Entry == NULL)
-	{
-		return STATUS_NOT_FOUND;
-	}
-
-	RemoveEntryList(&Entry->ListEntry);
-
-	// Check if any other hook in the list still shares the same OriginalPfn
-	BOOLEAN PageStillShared = (EptHook::FindHookEntryByPfn(Entry->OriginalPfn) != NULL);
-
-	// Restore original page
-	if (!PageStillShared)
-	{
-		Entry->TargetPte->Fields.PageFrameNumber = Entry->OriginalPfn;
-		Entry->TargetPte->Fields.Read = 1;
-		Entry->TargetPte->Fields.Write = 1;
-		Entry->TargetPte->Fields.Execute = 1;
-
-		if (Vcpu::VcpuState && Vcpu::VcpuState[0].VmcsLaunchStatus)
-		{
-			KeIpiGenericCall(Ept::InveptAllContexts, 0);
-		}
-
-		if (Entry->FakePageVirtualAddress != NULL)
-		{
-			PhysicalMemory::FreeContiguousMemory(Entry->FakePageVirtualAddress);
-			Entry->FakePageVirtualAddress = NULL;
-		}
-	}
-	else
-	{
-		RtlCopyMemory((PUCHAR)Entry->FakePageVirtualAddress + Entry->PageOffset, Entry->OriginalBytes, Entry->OriginalBytesSize);
-	}
-
-	if (Entry->OriginalTrampoline != NULL)
-	{
-		VirtualMemory::FreeNonPagedPool(Entry->OriginalTrampoline);
-		Entry->OriginalTrampoline = NULL;
-	}
-
-	LogInformation("EPT Hook removed from %p", TargetFunction);
-	VirtualMemory::FreeNonPagedPool(Entry->OriginalBytes);
-	VirtualMemory::FreeNonPagedPool(Entry);
 	return STATUS_SUCCESS;
 }
 
@@ -353,9 +535,12 @@ EXTERN_C PVOID PostHookOnEntry(
 	PULONG64 pSavedArgs
 )
 {
-	if (Entry == NULL || pCallerReturnRipSlot == NULL)
+	if (Entry == NULL || pCallerReturnRipSlot == NULL || CallerRsp == NULL)
 	{
-		return NULL;
+		LogError("Invalid Parameter (Entry: %p, ReturnRipSlot: %p, CallerRsp: %llx)",
+			Entry, pCallerReturnRipSlot, CallerRsp);
+		NT_ASSERT(Entry != NULL);
+		return (Entry != NULL) ? Entry->OriginalTrampoline : NULL;
 	}
 
 	if (HookGuard::IsQuiescing())
@@ -366,44 +551,103 @@ EXTERN_C PVOID PostHookOnEntry(
 	ULONG64 OriginalReturnRip = (ULONG64)*pCallerReturnRipSlot;
 	PVOID CurrentThread = PsGetCurrentThread();
 
-	// Atomic lock-free pop from free frame pool O(1)
-	PSLIST_ENTRY SListEntry = InterlockedPopEntrySList(&EptHook::FreeFrameListHead);
-	if (SListEntry == NULL)
-	{
-		LogWarning("PostHookOnEntry : Call frame pool exhausted for thread %p", CurrentThread);
-		return Entry->OriginalTrampoline;
-	}
-
-	PPOST_HOOK_CALL_FRAME Frame = CONTAINING_RECORD(SListEntry, POST_HOOK_CALL_FRAME, SListEntry);
-	Frame->Thread = CurrentThread;
-	Frame->CallerRsp = CallerRsp;
-	Frame->OriginalReturnRip = OriginalReturnRip;
-	Frame->ReturnRipSlot = pCallerReturnRipSlot;
-	Frame->Entry = Entry;
-
+	GUEST_CONTEXT Context = { 0 };
 	if (pSavedArgs != NULL)
 	{
-		Frame->Rcx = pSavedArgs[0];
-		Frame->Rdx = pSavedArgs[-1];
-		Frame->R8  = pSavedArgs[-2];
-		Frame->R9  = pSavedArgs[-3];
+		Context.Rax = pSavedArgs[1];
+		Context.Rcx = pSavedArgs[0];
+		Context.Rdx = pSavedArgs[-1];
+		Context.R8  = pSavedArgs[-2];
+		Context.R9  = pSavedArgs[-3];
 	}
-	else
+	Context.GuestRip = OriginalReturnRip;
+	Context.GuestRsp = CallerRsp;
+
+	BOOLEAN ShouldSkip = FALSE;
+
+	if (Entry->PreHookFunction != NULL)
 	{
-		Frame->Rcx = Frame->Rdx = Frame->R8 = Frame->R9 = 0;
+		ULONG GuardSlot = HOOK_GUARD_INVALID_SLOT;
+		if (HookGuard::Enter(Entry->TargetFunction, &GuardSlot))
+		{
+			if (Entry->UsePreHookResult)
+			{
+				fnPreHookWithResult PreHookFn = (fnPreHookWithResult)Entry->PreHookFunction;
+				ShouldSkip = PreHookFn(&Context);
+			}
+			else
+			{
+				fnPreHookCallback PreHookFn = (fnPreHookCallback)Entry->PreHookFunction;
+				PreHookFn(&Context);
+	
+			}
+
+			if (pSavedArgs != NULL)
+			{
+				pSavedArgs[1]  = Context.Rax;
+				pSavedArgs[0]  = Context.Rcx;
+				pSavedArgs[-1] = Context.Rdx;
+				pSavedArgs[-2] = Context.R8;
+				pSavedArgs[-3] = Context.R9;
+			}
+
+			HookGuard::Leave(GuardSlot);
+		}
 	}
 
-	// Insert into hash bucket (O(1) prepend under bucket lock)
-	ULONG BucketIndex = PostHookHash(CurrentThread);
-	PPOST_HOOK_BUCKET Bucket = &EptHook::PostHookBuckets[BucketIndex];
+	if (ShouldSkip)
+	{
+		*pCallerReturnRipSlot = (PVOID)OriginalReturnRip;
+		return (PVOID)AsmCommonRetStub;
+	}
 
-	Util::AcquireLock(&Bucket->Lock);
-	Frame->Next = Bucket->Head;
-	Bucket->Head = Frame;
-	Util::ReleaseLock(&Bucket->Lock);
+	if (Entry->HookFunction != NULL)
+	{
+		PPOST_HOOK_BUCKET Buckets = EptHook::PostHookBuckets;
+		if (Buckets == NULL)
+		{
+			LogError("PostHookBuckets is NULL");
+			return Entry->OriginalTrampoline;
+		}
 
-	// Rewrite stack return address to AsmPostHookReturnStub!
-	*pCallerReturnRipSlot = (PVOID)AsmPostHookReturnStub;
+		PSLIST_ENTRY SListEntry = InterlockedPopEntrySList(&EptHook::FreeFrameListHead);
+		if (SListEntry == NULL)
+		{
+			if (!EptHook::AllocateMoreFrames(POST_HOOK_CHUNK_FRAMES))
+			{
+				LogWarning("Dynamic call frame allocation failed for thread %p", CurrentThread);
+				return Entry->OriginalTrampoline;
+			}
+
+			SListEntry = InterlockedPopEntrySList(&EptHook::FreeFrameListHead);
+			if (SListEntry == NULL)
+			{
+				return Entry->OriginalTrampoline;
+			}
+		}
+
+		PPOST_HOOK_CALL_FRAME Frame = CONTAINING_RECORD(SListEntry, POST_HOOK_CALL_FRAME, SListEntry);
+		Frame->Thread = CurrentThread;
+		Frame->CallerRsp = CallerRsp;
+		Frame->OriginalReturnRip = OriginalReturnRip;
+		Frame->ReturnRipSlot = pCallerReturnRipSlot;
+		Frame->Entry = Entry;
+
+		Frame->Rcx = Context.Rcx;
+		Frame->Rdx = Context.Rdx;
+		Frame->R8  = Context.R8;
+		Frame->R9  = Context.R9;
+
+		ULONG BucketIndex = PostHookHash(CurrentThread);
+		PPOST_HOOK_BUCKET Bucket = &Buckets[BucketIndex];
+
+		Util::AcquireLock(&Bucket->Lock);
+		Frame->Next = Bucket->Head;
+		Bucket->Head = Frame;
+		Util::ReleaseLock(&Bucket->Lock);
+
+		*pCallerReturnRipSlot = (PVOID)AsmPostHookReturnStub;
+	}
 
 	return Entry->OriginalTrampoline;
 }
@@ -422,8 +666,19 @@ EXTERN_C ULONG64 PostHookOnReturn(
 	PEPT_POST_HOOK_ENTRY Entry = NULL;
 	GUEST_CONTEXT Context = { 0 };
 
+	PPOST_HOOK_BUCKET Buckets = EptHook::PostHookBuckets;
+	if (Buckets == NULL)
+	{
+		LogError("PostHookBuckets is NULL for thread %p", CurrentThread);
+		if (pOutOriginalReturnRip != NULL)
+		{
+			*pOutOriginalReturnRip = 0;
+		}
+		KeBugCheckEx(CRITICAL_STRUCTURE_CORRUPTION, (ULONG_PTR)CurrentThread, (ULONG_PTR)CurrentRsp, 0, 0x504F5354);
+	}
+
 	ULONG BucketIndex = PostHookHash(CurrentThread);
-	PPOST_HOOK_BUCKET Bucket = &EptHook::PostHookBuckets[BucketIndex];
+	PPOST_HOOK_BUCKET Bucket = &Buckets[BucketIndex];
 
 	Util::AcquireLock(&Bucket->Lock);
 
@@ -497,43 +752,61 @@ EXTERN_C ULONG64 PostHookOnReturn(
 	}
 	else
 	{
-		LogError("PostHookOnReturn : Failed to find call frame for thread %p RSP %llx", CurrentThread, CurrentRsp);
+		LogError("Failed to find call frame for thread %p RSP %llx", CurrentThread, CurrentRsp);
 	}
 
 	if (pOutOriginalReturnRip != NULL)
 	{
 		*pOutOriginalReturnRip = OriginalReturnRip;
+
+		if (OriginalReturnRip == 0)
+		{
+			LogError("OriginalReturnRip is 0 for thread %p RSP %llx", CurrentThread, CurrentRsp);
+			NT_ASSERT(OriginalReturnRip != 0);
+			KeBugCheckEx(CRITICAL_STRUCTURE_CORRUPTION, (ULONG_PTR)CurrentThread, (ULONG_PTR)CurrentRsp, 0, 0x504F5354);
+		}
 	}
 
 	ULONG64 FinalResult = ReturnValue;
 	if (Entry != NULL && Entry->HookFunction != NULL)
 	{
-		fnPostHookCallback HookFn = (fnPostHookCallback)Entry->HookFunction;
-		FinalResult = HookFn(&Context, ReturnValue);
+		ULONG GuardSlot = HOOK_GUARD_INVALID_SLOT;
+		if (HookGuard::Enter(Entry->TargetFunction, &GuardSlot))
+		{
+			fnPostHookCallback HookFn = (fnPostHookCallback)Entry->HookFunction;
+			FinalResult = HookFn(&Context, ReturnValue);
+			HookGuard::Leave(GuardSlot);
+		}
 	}
 
 	return FinalResult;
 }
 
 BOOLEAN
-EptHook::PostHook(PVOID TargetFunction, PVOID HookFunction)
+EptHook::PostHook(
+	PVOID TargetFunction,
+	fnPreHookCallback PreHookFunction,
+	fnPostHookCallback PostHookFunction,
+	PVOID* OriginalFunction,
+	BOOLEAN UsePreHookResult
+)
 {
-	if (!EptHook::Initialized || !TargetFunction || !HookFunction)
+	if (!EptHook::Initialized || !TargetFunction || (!PostHookFunction && !PreHookFunction))
 	{
-		LogWarning("PostHook : Invalid Parameter");
+		LogWarning("Invalid Parameter");
 		return FALSE;
 	}
 
 	if (EptHook::FindPostHookEntryByAddress(TargetFunction) != NULL)
 	{
-		LogWarning("PostHook : Target function %p is already post-hooked", TargetFunction);
+		LogWarning("Target function %p is already post-hooked", TargetFunction);
 		return FALSE;
 	}
 
 	PEPT_POST_HOOK_ENTRY Entry = NULL;
 	if (!VirtualMemory::AllocateNonPagedPool((PVOID*)&Entry, sizeof(EPT_POST_HOOK_ENTRY), FALSE))
 	{
-		LogError("PostHook : Failed to allocate EPT_POST_HOOK_ENTRY");
+		LogError("Failed to allocate EPT_POST_HOOK_ENTRY");
 		return FALSE;
 	}
 	RtlZeroMemory(Entry, sizeof(EPT_POST_HOOK_ENTRY));
@@ -546,7 +819,7 @@ EptHook::PostHook(PVOID TargetFunction, PVOID HookFunction)
 	PVOID EntryThunk = NULL;
 	if (!VirtualMemory::AllocateNonPagedPool(&EntryThunk, 24, TRUE))
 	{
-		LogError("PostHook : Failed to allocate executable EntryThunk");
+		LogError("Failed to allocate executable EntryThunk");
 		VirtualMemory::FreeNonPagedPool(Entry);
 		return FALSE;
 	}
@@ -566,135 +839,95 @@ EptHook::PostHook(PVOID TargetFunction, PVOID HookFunction)
 	ThunkCode[23] = 0x90;	// nop
 
 	Entry->TargetFunction = TargetFunction;
-	Entry->HookFunction = HookFunction;
+	Entry->HookFunction = (PVOID)PostHookFunction;
+	Entry->PreHookFunction = (PVOID)PreHookFunction;
 	Entry->EntryThunk = EntryThunk;
+	Entry->UsePreHookResult = UsePreHookResult;
 
 	// Install stealth EPT hook pointing to EntryThunk
 	NTSTATUS Status = EptHook::Hook(TargetFunction, EntryThunk, &Entry->OriginalTrampoline);
 	if (!NT_SUCCESS(Status))
 	{
-		LogError("PostHook: EptHook::Hook failed with status 0x%08X", Status);
+		LogError("EptHook::Hook failed with status 0x%08X", Status);
 		VirtualMemory::FreeNonPagedPool(EntryThunk);
 		VirtualMemory::FreeNonPagedPool(Entry);
 		return FALSE;
 	}
 
+	if (OriginalFunction != NULL)
+	{
+		*OriginalFunction = Entry->OriginalTrampoline;
+	}
+
 	Entry->IsHooked = TRUE;
 	InsertTailList(&EptHook::PostHookList, &Entry->ListEntry);
 
-	LogInformation("Post-Hook (Scheme A) installed on %p -> HookFunction: %p (Thunk: %p, Trampoline: %p)",
-		TargetFunction, HookFunction, EntryThunk, Entry->OriginalTrampoline);
+	LogInformation("Post-Hook installed on %p -> PostHook: %p, PreHook: %p (Thunk: %p, Trampoline: %p)",
+		TargetFunction, PostHookFunction, PreHookFunction, EntryThunk, Entry->OriginalTrampoline);
 
 	return TRUE;
 }
 
 BOOLEAN
-EptHook::UnhookPostHook(PVOID TargetFunction)
+EptHook::PostHook(
+	PVOID TargetFunction,
+	fnPreHookFilterCallback PreHookFilterFunction,
+	fnPostHookCallback PostHookFunction,
+	PVOID* OriginalFunction
+)
 {
-	if (!EptHook::Initialized || !TargetFunction)
-	{
-		return FALSE;
-	}
-
-	PEPT_POST_HOOK_ENTRY Entry = EptHook::FindPostHookEntryByAddress(TargetFunction);
-	if (Entry == NULL)
-	{
-		return FALSE;
-	}
-
-	RemoveEntryList(&Entry->ListEntry);
-
-	// Remove underlying EPT Hook
-	EptHook::Unhook(TargetFunction);
-
-	// Revert stack return addresses on the spot for in-flight/blocking threads
-	EptHook::RevertPostHookFrames(Entry);
-
-	if (Entry->EntryThunk != NULL)
-	{
-		VirtualMemory::FreeNonPagedPool(Entry->EntryThunk);
-		Entry->EntryThunk = NULL;
-	}
-
-	LogInformation("Post-Hook removed from %p", TargetFunction);
-	VirtualMemory::FreeNonPagedPool(Entry);
-	return TRUE;
+	return EptHook::PostHook(TargetFunction, (fnPreHookCallback)PreHookFilterFunction, PostHookFunction, OriginalFunction, TRUE);
 }
 
-VOID
-EptHook::RevertPostHookFrames(PEPT_POST_HOOK_ENTRY TargetEntry)
+BOOLEAN
+EptHook::PostHook(
+	PVOID TargetFunction,
+	fnPostHookCallback PostHookFunction
+)
 {
-	for (ULONG b = 0; b < POST_HOOK_HASH_BUCKETS; b++)
-	{
-		PPOST_HOOK_BUCKET Bucket = &EptHook::PostHookBuckets[b];
-		Util::AcquireLock(&Bucket->Lock);
-
-		PPOST_HOOK_CALL_FRAME Prev = NULL;
-		PPOST_HOOK_CALL_FRAME Frame = Bucket->Head;
-		while (Frame != NULL)
-		{
-			PPOST_HOOK_CALL_FRAME Next = Frame->Next;
-			if (TargetEntry == NULL || Frame->Entry == TargetEntry)
-			{
-				if (Frame->ReturnRipSlot != NULL && *Frame->ReturnRipSlot == (PVOID)AsmPostHookReturnStub)
-				{
-					*Frame->ReturnRipSlot = (PVOID)Frame->OriginalReturnRip;
-				}
-				if (Prev == NULL)
-				{
-					Bucket->Head = Next;
-				}
-				else
-				{
-					Prev->Next = Next;
-				}
-				RtlZeroMemory(Frame, sizeof(POST_HOOK_CALL_FRAME));
-				InterlockedPushEntrySList(&EptHook::FreeFrameListHead, &Frame->SListEntry);
-			}
-			else
-			{
-				Prev = Frame;
-			}
-			Frame = Next;
-		}
-		Util::ReleaseLock(&Bucket->Lock);
-	}
+	return EptHook::PostHook(TargetFunction, NULL, PostHookFunction, NULL, FALSE);
 }
 
-VOID
-EptHook::UnhookAll()
+BOOLEAN
+EptHook::UtilHook(
+	PVOID TargetFunction,
+	fnPreHookCallback PreHookFunction,
+	fnPostHookCallback PostHookFunction,
+	PVOID* OriginalFunction,
+	BOOLEAN UsePreHookResult
+)
 {
-	if (!EptHook::Initialized)
-	{
-		return;
-	}
-
-	EptHook::RevertPostHookFrames(NULL);
-
-	while (!IsListEmpty(&EptHook::PostHookList))
-	{
-		PLIST_ENTRY Flink = EptHook::PostHookList.Flink;
-		PEPT_POST_HOOK_ENTRY PostEntry = CONTAINING_RECORD(Flink, EPT_POST_HOOK_ENTRY, ListEntry);
-		EptHook::UnhookPostHook(PostEntry->TargetFunction);
-	}
-
-	while (!IsListEmpty(&EptHook::HookList))
-	{
-		PLIST_ENTRY Flink = EptHook::HookList.Flink;
-		PEPT_HOOK_ENTRY Entry = CONTAINING_RECORD(Flink, EPT_HOOK_ENTRY, ListEntry);
-		EptHook::Unhook(Entry->TargetVirtualAddress);
-	}
-
-	LogInformation("All EPT Hooks and Post-Hooks unhooked successfully");
-	return;
+	return EptHook::PostHook(TargetFunction, PreHookFunction, PostHookFunction, OriginalFunction, UsePreHookResult);
 }
 
+BOOLEAN
+EptHook::UtilHook(
+	PVOID TargetFunction,
+	fnPreHookFilterCallback PreHookFilterFunction,
+	fnPostHookCallback PostHookFunction,
+	PVOID* OriginalFunction
+)
+{
+	return EptHook::PostHook(TargetFunction, PreHookFilterFunction, PostHookFunction, OriginalFunction);
+}
+
+BOOLEAN
+EptHook::UtilHook(
+	PVOID TargetFunction,
+	fnPostHookCallback PostHookFunction
+)
+{
+	return EptHook::PostHook(TargetFunction, PostHookFunction);
+}
+#pragma endregion
+
+#pragma region VM-Exit-Handler
 BOOLEAN
 EptHook::HandleEptViolation(PGUEST_CONTEXT Context, ULONG64 GuestPhysicalAddress, EPT_VIOLATION_QUALIFICATION Qualification)
 {
 	UNREFERENCED_PARAMETER(Context);
 
-	ULONG64 Pfn = GuestPhysicalAddress >> 12;
+	ULONG64 Pfn = EPT_PAGE_FRAME_NUMBER(GuestPhysicalAddress);
 	ULONG CurrentCpu = KeGetCurrentProcessorNumberEx(NULL);
 	PVCPU_STATE CurrentVcpu = &Vcpu::VcpuState[CurrentCpu];
 
@@ -715,8 +948,7 @@ EptHook::HandleEptViolation(PGUEST_CONTEXT Context, ULONG64 GuestPhysicalAddress
 		Entry->TargetPte->Fields.Write = 1;
 		Entry->TargetPte->Fields.Execute = 1;
 
-		INVEPT_DESCRIPTOR Descriptor = { 0 };
-		AsmInvept(INVEPT_ALL_CONTEXTS, &Descriptor);
+		Ept::InveptSingleContext();
 
 		Vmcs::EnableMonitorTrapFlag();
 
@@ -735,8 +967,7 @@ EptHook::HandleEptViolation(PGUEST_CONTEXT Context, ULONG64 GuestPhysicalAddress
 		Entry->TargetPte->Fields.Write = 0;
 		Entry->TargetPte->Fields.Execute = 1;
 
-		INVEPT_DESCRIPTOR Descriptor = { 0 };
-		AsmInvept(INVEPT_ALL_CONTEXTS, &Descriptor);
+		Ept::InveptSingleContext();
 
 		Vmcs::DisableMonitorTrapFlag();
 
@@ -767,8 +998,7 @@ EptHook::HandleMonitorTrapFlag(PGUEST_CONTEXT Context)
 		Entry->TargetPte->Fields.Write = 0;
 		Entry->TargetPte->Fields.Execute = 1;
 
-		INVEPT_DESCRIPTOR Descriptor = { 0 };
-		AsmInvept(INVEPT_ALL_CONTEXTS, &Descriptor);
+		Ept::InveptSingleContext();
 
 		CurrentVcpu->CurrentActiveHook = NULL;
 	}
@@ -780,5 +1010,6 @@ EptHook::HandleMonitorTrapFlag(PGUEST_CONTEXT Context)
 
 	return TRUE;
 }
+#pragma endregion
 
 

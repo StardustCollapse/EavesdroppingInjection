@@ -14,8 +14,8 @@ Util::SetBit(PUCHAR Value, ULONG64 BitPosition)
 	return;
 }
 
+/* reference from Hypervisor-From-Scratch */
 
-/* reference from HyperDbg */
 /* Find cr3 of system process*/
 ULONG64
 Util::FindSystemDirectoryTableBase()
@@ -24,7 +24,8 @@ Util::FindSystemDirectoryTableBase()
 	NT_KPROCESS* SystemProcess = (NT_KPROCESS*)(PsInitialSystemProcess);
 	return SystemProcess->DirectoryTableBase;
 }
-/* reference from HyperDbg */
+
+/* reference from Hypervisor-From-Scratch */
 
 VOID
 Util::AcquireLock(volatile LONG* Lock)

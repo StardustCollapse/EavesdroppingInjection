@@ -10,10 +10,26 @@
 
 #define EPT_MAPPED_SIZE (4096ULL * EPT_PML1E_COUNT * EPT_PML2E_COUNT * EPT_PML3E_COUNT * EPT_PML4E_COUNT)
 
-#define EPT_PML1_INDEX(PhysicalAddress) ((PhysicalAddress >> 12) & 0x1FFULL)
-#define EPT_PML2_INDEX(PhysicalAddress) ((PhysicalAddress >> 21) & 0x1FFULL)
-#define EPT_PML3_INDEX(PhysicalAddress) ((PhysicalAddress >> 30) & 0x1FFULL)
-#define EPT_PML4_INDEX(PhysicalAddress) ((PhysicalAddress >> 39) & 0x1FFULL)
+#define EPT_PHYSICAL_ADDRESS(PageFrameNumber) (((ULONG64)(PageFrameNumber)) << 12)
+#define EPT_PAGE_FRAME_NUMBER(PhysicalAddress) (((ULONG64)(PhysicalAddress)) >> 12)
+#define EPT_PAGE_OFFSET(PhysicalAddress) ((ULONG)(((ULONG64)(PhysicalAddress)) & 0xFFFULL))
+
+#define EPT_PML1_ADDRESS_OFFSET(Index) (((ULONG64)(Index)) << 12)
+#define EPT_PML2_ADDRESS_OFFSET(Index) (((ULONG64)(Index)) << 21)
+#define EPT_PML3_ADDRESS_OFFSET(Index) (((ULONG64)(Index)) << 30)
+#define EPT_PML4_ADDRESS_OFFSET(Index) (((ULONG64)(Index)) << 39)
+
+#define EPT_PML1_PAGE_FRAME_NUMBER(PhysicalAddress) (((ULONG64)(PhysicalAddress)) >> 12)
+#define EPT_PML2_PAGE_FRAME_NUMBER(PhysicalAddress) (((ULONG64)(PhysicalAddress)) >> 21)
+#define EPT_PML3_PAGE_FRAME_NUMBER(PhysicalAddress) (((ULONG64)(PhysicalAddress)) >> 30)
+#define EPT_PML4_PAGE_FRAME_NUMBER(PhysicalAddress) (((ULONG64)(PhysicalAddress)) >> 39)
+
+#define EPT_PHYSICAL_ADDRESS_ALIGNED_2MB(PhysicalAddress) (((ULONG64)(PhysicalAddress)) & ~0x1FFFFFULL)
+
+#define EPT_PML1_INDEX(PhysicalAddress) (EPT_PML1_PAGE_FRAME_NUMBER(PhysicalAddress) & 0x1FFULL)
+#define EPT_PML2_INDEX(PhysicalAddress) (EPT_PML2_PAGE_FRAME_NUMBER(PhysicalAddress) & 0x1FFULL)
+#define EPT_PML3_INDEX(PhysicalAddress) (EPT_PML3_PAGE_FRAME_NUMBER(PhysicalAddress) & 0x1FFULL)
+#define EPT_PML4_INDEX(PhysicalAddress) (EPT_PML4_PAGE_FRAME_NUMBER(PhysicalAddress) & 0x1FFULL)
 
 typedef union _EPTP
 {
@@ -201,7 +217,7 @@ public:
 	static EPTP GetEptPointer();
 
 	static ULONG_PTR InveptAllContexts(ULONG_PTR Arguments);
-	static ULONG_PTR InveptSingleContext(ULONG64 EptPointer);
+	static ULONG_PTR InveptSingleContext(ULONG_PTR EptPointer = 0);
 
 	static BOOLEAN HandleEptViolation(PGUEST_CONTEXT Context, ULONG64 GuestPhysicalAddress, ULONG64 ExitQualification);
 	static BOOLEAN HandleEptMisconfiguration(PGUEST_CONTEXT Context, ULONG64 GuestPhysicalAddress);

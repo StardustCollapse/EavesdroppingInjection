@@ -123,26 +123,26 @@ Ept::InitializeEpt()
 
 	for (ULONG i = 0; i < EPT_PML4E_COUNT; i++)
 	{
-		ULONG64 PdptPhysicalAddress = Ept::EptState.PdptPhysicalAddress + (i * PAGE_SIZE);
+		ULONG64 PdptPhysicalAddress = Ept::EptState.PdptPhysicalAddress + EPT_PHYSICAL_ADDRESS(i);
 
 		Ept::EptState.Pml4Table[i].Fields.Read = 1;
 		Ept::EptState.Pml4Table[i].Fields.Write = 1;
 		Ept::EptState.Pml4Table[i].Fields.Execute = 1;
-		Ept::EptState.Pml4Table[i].Fields.PdptePhysicalAddress = PdptPhysicalAddress >> 12;
+		Ept::EptState.Pml4Table[i].Fields.PdptePhysicalAddress = EPT_PAGE_FRAME_NUMBER(PdptPhysicalAddress);
 	}
 
 	for (ULONG i = 0; i < EPT_PML4E_COUNT; i++)
 	{
 		for (ULONG j = 0; j < EPT_PML3E_COUNT; j++)
 		{
-			ULONG64 PdPhysicalAddress = Ept::EptState.PdTablesPhysicalAddress + (((ULONG64)i * EPT_PML3E_COUNT + j) * PAGE_SIZE);
+			ULONG64 PdPhysicalAddress = Ept::EptState.PdTablesPhysicalAddress + EPT_PHYSICAL_ADDRESS((ULONG64)i * EPT_PML3E_COUNT + j);
 			PEPT_PDPTE Pdpte = &Ept::EptState.PdptTable[(ULONG64)i * EPT_PML3E_COUNT + j];
 
 			Pdpte->Fields.Read = 1;
 			Pdpte->Fields.Write = 1;
 			Pdpte->Fields.Execute = 1;
 			Pdpte->Fields.LargePage = 0; // References a Page Directory
-			Pdpte->Fields.PdePhysicalAddress = PdPhysicalAddress >> 12;
+			Pdpte->Fields.PdePhysicalAddress = EPT_PAGE_FRAME_NUMBER(PdPhysicalAddress);
 		}
 	}
 
@@ -152,7 +152,7 @@ Ept::InitializeEpt()
 		{
 			for (ULONG k = 0; k < EPT_PML2E_COUNT; k++)
 			{
-				ULONG64 PhysicalAddress = ((ULONG64)i << 39) | ((ULONG64)j << 30) | ((ULONG64)k << 21);
+				ULONG64 PhysicalAddress = EPT_PML4_ADDRESS_OFFSET(i) | EPT_PML3_ADDRESS_OFFSET(j) | EPT_PML2_ADDRESS_OFFSET(k);
 				PEPT_PDE_2MB Pde = &Ept::EptState.PdTables[(ULONG64)i * EPT_PML3E_COUNT + j].Entries[k];
 
 				Pde->Fields.Read = 1;
@@ -161,7 +161,7 @@ Ept::InitializeEpt()
 				Pde->Fields.MemoryType = 6;      // Write-Back (WB)
 				Pde->Fields.IgnorePat = 0;       // Combine with guest MTRR
 				Pde->Fields.LargePage = 1;       // 2MB Large Page
-				Pde->Fields.PageFrameNumber = PhysicalAddress >> 21;
+				Pde->Fields.PageFrameNumber = EPT_PML2_PAGE_FRAME_NUMBER(PhysicalAddress);
 			}
 		}
 	}
@@ -174,7 +174,7 @@ Ept::InitializeEpt()
 	Ept::EptState.EptPointer.Fields.MemoryType = EptMemoryType;
 	Ept::EptState.EptPointer.Fields.PageWalkLength = 3; // 4 levels (0 - 3)
 	Ept::EptState.EptPointer.Fields.EnableAccessedDirtyFlags = 0;
-	Ept::EptState.EptPointer.Fields.Pml4PhysicalAddress = Ept::EptState.Pml4PhysicalAddress >> 12;
+	Ept::EptState.EptPointer.Fields.Pml4PhysicalAddress = EPT_PAGE_FRAME_NUMBER(Ept::EptState.Pml4PhysicalAddress);
 
 	Ept::EptState.SplitPageListHead = NULL;
 
@@ -243,13 +243,14 @@ Ept::InveptAllContexts(ULONG_PTR Arguments)
 }
 
 ULONG_PTR
-Ept::InveptSingleContext(ULONG64 EptPointer)
+Ept::InveptSingleContext(ULONG_PTR EptPointer)
 {
 	ULONG CurrentProcessorNumber = KeGetCurrentProcessorNumberEx(NULL);
 	if (Vcpu::VcpuState && Vcpu::VcpuState[CurrentProcessorNumber].VmxonStatus)
 	{
 		INVEPT_DESCRIPTOR Descriptor = { 0 };
-		Descriptor.EptPointer = EptPointer;
+		Descriptor.EptPointer = (EptPointer != 0) ? (ULONG64)EptPointer : Ept::GetEptPointer().Value;
+		Descriptor.Reserved = 0;
 		return (ULONG_PTR)AsmInvept(INVEPT_SINGLE_CONTEXT, &Descriptor);
 	}
 	return 0;
@@ -280,7 +281,7 @@ Ept::SplitLargePageTo4Kb(ULONG64 PhysicalAddress)
 	if (Pde2Mb->Fields.LargePage == 0)
 	{
 		PEPT_PDE Pde = (PEPT_PDE)Pde2Mb;
-		ULONG64 PtePhysicalAddress = (ULONG64)Pde->Fields.PtePhysicalAddress << 12;
+		ULONG64 PtePhysicalAddress = EPT_PHYSICAL_ADDRESS(Pde->Fields.PtePhysicalAddress);
 
 		// Find virtual address from tracking list
 		PSPLIT_PAGE_NODE CurrentNode = Ept::EptState.SplitPageListHead;
@@ -306,7 +307,7 @@ Ept::SplitLargePageTo4Kb(ULONG64 PhysicalAddress)
 	RtlZeroMemory(NewPageTable, PAGE_SIZE);
 
 	ULONG64 NewTablePhysicalAddress = VirtualMemory::VirtualAddressToPhysicalAddress(NewPageTable);
-	ULONG64 BasePhysicalAddress = PhysicalAddress & ~0x1FFFFFULL; // 2MB aligned
+	ULONG64 BasePhysicalAddress = EPT_PHYSICAL_ADDRESS_ALIGNED_2MB(PhysicalAddress);
 
 	for (ULONG i = 0; i < 512; i++)
 	{
@@ -315,7 +316,7 @@ Ept::SplitLargePageTo4Kb(ULONG64 PhysicalAddress)
 		NewPageTable[i].Fields.Execute = 1;
 		NewPageTable[i].Fields.MemoryType = 6; // Write-Back (WB)
 		NewPageTable[i].Fields.IgnorePat = 0;
-		NewPageTable[i].Fields.PageFrameNumber = (BasePhysicalAddress + (i * PAGE_SIZE)) >> 12;
+		NewPageTable[i].Fields.PageFrameNumber = EPT_PML1_PAGE_FRAME_NUMBER(BasePhysicalAddress + EPT_PML1_ADDRESS_OFFSET(i));
 	}
 
 	PSPLIT_PAGE_NODE Node = NULL;
@@ -336,11 +337,11 @@ Ept::SplitLargePageTo4Kb(ULONG64 PhysicalAddress)
 	Pde->Fields.Write = 1;
 	Pde->Fields.Execute = 1;
 	Pde->Fields.LargePage = 0; // Not a large page anymore
-	Pde->Fields.PtePhysicalAddress = NewTablePhysicalAddress >> 12;
+	Pde->Fields.PtePhysicalAddress = EPT_PAGE_FRAME_NUMBER(NewTablePhysicalAddress);
 
 	if (Vcpu::VcpuState && Vcpu::VcpuState[0].VmcsLaunchStatus)
 	{
-		KeIpiGenericCall(Ept::InveptAllContexts, 0);
+		KeIpiGenericCall(Ept::InveptSingleContext, 0);
 	}
 
 	ULONG64 PtIndex = EPT_PML1_INDEX(PhysicalAddress);
@@ -376,7 +377,7 @@ Ept::GetPte(ULONG64 PhysicalAddress)
 
 	// Already split, find the PTE
 	PEPT_PDE Pde = (PEPT_PDE)Pde2Mb;
-	ULONG64 PtePhysicalAddress = (ULONG64)Pde->Fields.PtePhysicalAddress << 12;
+	ULONG64 PtePhysicalAddress = EPT_PHYSICAL_ADDRESS(Pde->Fields.PtePhysicalAddress);
 
 	PSPLIT_PAGE_NODE CurrentNode = Ept::EptState.SplitPageListHead;
 	while (CurrentNode != NULL)

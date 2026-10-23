@@ -180,7 +180,7 @@ EavesdroppingInjection/
     │   ├── Vmm/                 # Hypervisor global state & lifecycle management (Vmm.h, Dpc.h)
     │   ├── Vmx/                 # Intel VMX specifications and macros (Vmx.h, SupportVmx.h)
     │   ├── Register.h           # General CPU registers and RFLAGS definitions
-    │   └── util.h               # Utility prototypes (CR access, CPUID detection)
+    │   └── util.h               # Utility prototypes (CR access)
     │
     └── Code/                    # C/C++ Implementation Files
         ├── DriverEntry.cpp      # Driver main entry point

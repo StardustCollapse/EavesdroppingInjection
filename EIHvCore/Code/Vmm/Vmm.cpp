@@ -135,8 +135,9 @@ Vmm::UnLoadVMM()
 	HookGuard::WaitForDraining();
 	LogInformation("All active hook threads drained successfully (Remaining active: %ld).", HookGuard::GetActiveHookCount());
 
-	EptHook::UnhookAll();
-	LogInformation("All EPT hooks unhooked and TLBs flushed across all cores.");
+	HookCompoents::DestroyHook();
+	EptHook::Destroy();
+	LogInformation("All EPT and Util hooks destroyed successfully.");
 
 	LARGE_INTEGER Delay;
 	Delay.QuadPart = -500000; // 50 ms
@@ -146,6 +147,7 @@ Vmm::UnLoadVMM()
 	KeIpiGenericCall(Vmm::DisableVmxOperation, 0);
 
 	Vmm::FreeVmmMemory();
+	Ept::DestroyEpt();
 
 	Vmm::VmmState.VmmFlags.Bit.VmmStarted = FALSE;
 
@@ -198,11 +200,7 @@ Vmm::FreeVmmMemory()
 	VirtualMemory::FreeNonPagedPool((PVOID)Vcpu::VcpuState);
 	Vcpu::VcpuState = NULL;
 
-	HookCompoents::DestroyHook();
-	EptHook::Destroy();
-	Ept::DestroyEpt();
-
-	LogInformation("All VMM memory is freed successfully");
+	LogInformation("All VMM CPU memory is freed successfully");
 	return;
 }
 
