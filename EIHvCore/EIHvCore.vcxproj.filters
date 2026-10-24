@@ -110,6 +110,9 @@
     <ClInclude Include="Header\Driver\Driver.h">
       <Filter>Header\Driver</Filter>
     </ClInclude>
+    <ClInclude Include="Header\Driver\KernelBenchmark.h">
+      <Filter>Header\Driver</Filter>
+    </ClInclude>
     <ClInclude Include="Header\Vmm\Vmm.h">
       <Filter>Header\Vmm</Filter>
     </ClInclude>
@@ -206,6 +209,9 @@
       <Filter>Code\Driver</Filter>
     </ClCompile>
     <ClCompile Include="Code\Driver\DriverDispatch.cpp">
+      <Filter>Code\Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\Driver\KernelBenchmark.cpp">
       <Filter>Code\Driver</Filter>
     </ClCompile>
     <ClCompile Include="Code\Log\Log.cpp">

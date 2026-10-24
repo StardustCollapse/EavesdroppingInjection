@@ -1,6 +1,6 @@
 # EavesdroppingInjection (EIHvCore)
 
-基於 Intel VT-x (VMX) 與 EPT (Extended Page Tables) 技術打造的輕量級 Windows x64 核心 Hypervisor，專為無痕內核掛鉤（Stealth EPT Hooking）與動態行為監控設計。
+基於 Intel VT-x (VMX) 與 EPT (Extended Page Tables) 技術打造的輕量級 Windows x64 核心 Hypervisor，專為無痕內核掛鉤（Stealth EPT Hooking）、動態行為監控與微架構延遲測速設計。
 
 [English](README_EN.md) | [繁體中文](README.md)
 
@@ -13,6 +13,7 @@
   - [測試模式載入（替代方案）](#2-測試模式載入替代方案)
   - [服務建立與啟動](#3-服務建立與啟動)
 - [使用方式](#使用方式)
+- [RDTSC 微架構測速與流程損耗分析](#rdtsc-微架構測速與流程損耗分析)
 - [功能實作狀態](#功能實作狀態)
   - [已實現功能](#已實現功能)
   - [規劃中--未實現功能](#規劃中--未實現功能)
@@ -24,8 +25,8 @@
 ## 專案簡介
 
 `EavesdroppingInjection` 包含兩大子系統：
-1. **EIHvCore (Kernel-Mode Driver)**：利用 Intel VT-x 虛擬化技術，在 Windows 核心下方架構一個 Type-2 Hypervisor，透過 EPT 頁面分割與讀寫/執行分離（Split-page）技術實現抗 PatchGuard（Kernel Patch Protection, KPP）的內核無痕 Pre-Hook 與 Post-Hook。
-2. **EIHvControlCenter (User-Mode CLI)**：用於與核心驅動溝通並控制 Hypervisor 生命週期（載入、啟動、卸載排空）之用戶態控制程式。
+1. **EIHvCore (Kernel-Mode Driver)**：利用 Intel VT-x 虛擬化技術，在 Windows 核心下方架構一個 Type-2 Hypervisor，透過 EPT 頁面分割與讀寫/執行分離（Split-page）技術實現抗 PatchGuard（Kernel Patch Protection, KPP）的內核無痕 Pre-Hook 與 Post-Hook；並提供內核級微基準測試接口（`IOCTL_HV_BENCHMARK`）以進行真實硬體與虛擬化開銷測量。
+2. **EIHvControlCenter (User-Mode CLI & Visualizer)**：用於與核心驅動溝通並控制 Hypervisor 生命週期（載入、啟動、卸載排空）之用戶態控制程式，整合嚴格記憶體屏障 RDTSC 微架構測速套件與 Python Matplotlib 流程損耗多區塊堆疊圖視覺化引擎。
 
 ---
 
@@ -90,12 +91,36 @@ sc delete EIHvCore
 
 ## 使用方式
 
-1. **啟動驅動服務**：依上述步驟執行 `sc start EIHvCore`。
+1. **啟動驅動服務**：依上述步驟執行 `sc start EIHvCore`（亦可在未載入驅動時獨立執行用戶態獨立測速）。
 2. **執行控制台**：以系統管理員身分啟動 `EIHvControlCenter.exe`。
 3. **操作選單**：
    - 輸入 `1`：發送 `IOCTL_HV_START`，初始化各核心 VCPU、建置 EPT 並發射 VMCS，啟用各項 EPT 鉤子。
    - 輸入 `2`：發送 `IOCTL_HV_STOP`，啟動安全排空（Quiescence Draining）機制，排空執行中的 Hook 執行緒，透過 VMCALL 關閉各核心 VMXON 並還原實體記憶體（杜絕 `0xCE` BSOD）。
+   - 輸入 `3`：執行 **RDTSC 高頻測速基準測試**，可選擇迭代次數（標準 10,000 次、深度 100,000 次、快速 1,000 次），完成後自動匯出 JSON。
+   - 輸入 `4`：啟動 **Python 視覺化圖表生成引擎**，即時呈現多區塊流程損耗堆疊長條圖與分析儀表板。
    - 輸入 `0`：退出控制台。
+
+---
+
+## RDTSC 微架構測速與流程損耗分析
+
+為精確衡量 Hypervisor 與 EPT 隱藏頁分頁掛鉤的實際微架構損耗，專案內建完整的 RDTSC 高精度微基準測試套件：
+
+1. **嚴格指令序列化與記憶體屏障**：
+   - 開始計時：`_mm_mfence() -> _mm_lfence() -> __rdtsc() -> _mm_lfence()`。
+   - 結束計時：`_mm_lfence() -> __rdtscp(&aux) -> _mm_lfence() -> _mm_mfence()`。
+   - 徹底杜絕 CPU 亂序執行（Out-of-Order Execution）與推測執行（Speculative Execution）所帶來的時間測量污染。
+2. **單核親和性與優先級鎖定**：
+   - 透過 `ScopedCpuAffinity` 自動將執行緒鎖定於指定單一邏輯核心（遮罩設為 `(DWORD_PTR)1 << CoreIndex`）。
+   - 自動將行程優先級提升至 `REALTIME_PRIORITY_CLASS`（失敗自動回退至 `HIGH_PRIORITY_CLASS`）搭配 `THREAD_PRIORITY_TIME_CRITICAL`，濾除 Windows 排程器與 DPC 雜訊。
+3. **驅動層真實測速（消除 `#GP` 污染）**：
+   - 用戶態執行特權指令（如 `rdmsr`）會觸發 `#GP(0)`，所測時間高達 99% 均為 Windows 異常派發管線損耗（~3,400 週期）。
+   - 透過 `IOCTL_HV_BENCHMARK` 直接在具備原生 $CPL=0$ 特權的驅動內核執行，獲得真實裸機速度（~35 週期）與真實 VM-Exit 攔截開銷（~1,380 週期）。
+4. **多區塊流程損耗堆疊長條圖（Stacked Bar Dashboard）**：
+   - 透過差分微基準測試模型，將單一總耗時切分為多個彩色區塊並標註百分比：
+     - **CPUID 項目**：切分為「裸機原生開銷 (~210c, 10%)」＋「Hypervisor VM-Exit 攔截開銷 (~1,930c, 90%)」。
+     - **EPT Syscall 項目**：切分為「原生 Syscall 基線 (~223c)」＋「EPT 違例換頁開銷 (~261c)」＋「PostHook 派發邏輯 (~174c)」。
+     - **MSR 項目**：對比呈現「用戶態 `#GP` 異常派發巨額開銷 (~3,400c)」vs「內核真實原生 (35c) / VM-Exit (1,380c)」。
 
 ---
 
@@ -123,8 +148,13 @@ sc delete EIHvCore
   - **HookGuard 遞迴防護**：基於執行緒與核心層級的防重入保護機制，徹底防止 Hook 處理函數自身引發的死迴圈或堆疊溢位。
   - **安全卸載排空機制（Quiescence Draining）**：卸載前先阻斷新請求並等待所有仍在執行 Hook 的緒程全部撤出，徹底消除驅動卸載引發的 `0xCE` / `0x1AA` BSOD。
   - **取樣日誌（Sample Logging）**：對高頻率分配函數（如 `ExAllocatePool2`）進行倍數取樣，避免 `DbgPrintEx` 造成系統凍結與延遲。
+- [x] **RDTSC 微架構測速與流程損耗分析系統**：
+  - 序列化計時指令（`_mm_mfence + _mm_lfence + __rdtsc / __rdtscp`）與核心綁定。
+  - 驅動層測速接口 `IOCTL_HV_BENCHMARK`，杜絕 `#GP` 異常派發污染。
+  - 支援將多回合測量結果以 JSON 格式（`latest_benchmark.json` 與 `benchmark_results.json`）結構化儲存。
+  - Python Matplotlib 四分格視覺化儀表板（`visualize_benchmark.py`），支援流程損耗多區塊堆疊長條圖、CPUID VM-Exit 專屬分析與歷史回合對比。
 - [x] **用戶態控制中心**：
-  - 提供 CLI 互動介面，支援 Hypervisor 動態開啟與關閉。
+  - 提供 CLI 互動介面，支援 Hypervisor 動態開啟/關閉、RDTSC 微基準測速與 Python 視覺化圖表啟動。
 
 ### 規劃中 / 未實現功能
 
@@ -147,7 +177,10 @@ EavesdroppingInjection/
 │
 ├── EIHvControlCenter/           # 用戶態控制台專案 (User-Mode Application)
 │   ├── Control.cpp              # Win32 控制台原始碼 (IOCTL 呼叫與互動選單)
-│   ├── EIHvControlCenter.vcxproj # 專案檔
+│   ├── RdtscBenchmark.h         # RDTSC 測速結構體、CPU 親和性鎖定與介面宣告
+│   ├── RdtscBenchmark.cpp       # 序列化計時實作、流程損耗差分計算與 JSON 匯出
+│   ├── visualize_benchmark.py   # Python 視覺化圖表引擎 (多區塊堆疊長條圖儀表板)
+│   ├── EIHvControlCenter.vcxproj # 專案檔 (已配置乾淨 IntDir，根除亂碼目錄)
 │   └── EIHvControlCenter.vcxproj.filters
 │
 └── EIHvCore/                    # 核心態驅動與 VT-x 引擎專案 (Kernel-Mode Driver)
@@ -166,7 +199,7 @@ EavesdroppingInjection/
     │       └── table64.h
     │
     ├── Header/                  # C/C++ 標頭檔目錄
-    │   ├── Driver/              # 驅動定義與 IOCTL 控制碼宣告 (Driver.h, Ioctl.h)
+    │   ├── Driver/              # 驅動定義與 IOCTL 控制碼宣告 (Driver.h, Ioctl.h, KernelBenchmark.h)
     │   ├── Ept/                 # EPT 頁表結構與控制宣告 (Ept.h)
     │   ├── EptHook/             # EPT Hook、Pre/Post Hook 與 HookGuard 介面宣告
     │   ├── Log/                 # 核心日誌巨集封裝 (Log.h)
@@ -184,7 +217,7 @@ EavesdroppingInjection/
     │
     └── Code/                    # C/C++ 實作程式碼目錄
         ├── DriverEntry.cpp      # 驅動程式統一入口點
-        ├── Driver/              # 驅動分發、裝置物件創建 (Driver.cpp, DriverDispatch.cpp)
+        ├── Driver/              # 驅動分發、裝置物件創建 (Driver.cpp, DriverDispatch.cpp, KernelBenchmark.cpp)
         ├── Ept/                 # EPT 頁表構建、2MB 頁面分割 (Ept.cpp)
         ├── EptHook/             # EPT 雙頁 Hook 引擎、HookGuard 防護與組件實作
         │   ├── EptHook.cpp      # EPT 分頁掛鉤、違規處理、MTF 步進

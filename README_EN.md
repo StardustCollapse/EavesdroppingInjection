@@ -1,6 +1,6 @@
 # EavesdroppingInjection (EIHvCore)
 
-A lightweight Windows x64 kernel-mode hypervisor built on Intel VT-x (VMX) and Extended Page Tables (EPT), designed for stealth kernel-level hooking (Stealth EPT Hooking) and dynamic behavior monitoring.
+A lightweight Windows x64 kernel-mode hypervisor built on Intel VT-x (VMX) and Extended Page Tables (EPT), designed for stealth kernel-level hooking (Stealth EPT Hooking), dynamic behavior monitoring, and microarchitectural latency profiling.
 
 [English](README_EN.md) | [繁體中文](README.md)
 
@@ -13,6 +13,7 @@ A lightweight Windows x64 kernel-mode hypervisor built on Intel VT-x (VMX) and E
   - [Test-Signing Mode (Alternative)](#2-test-signing-mode-alternative)
   - [Service Creation and Management](#3-service-creation-and-management)
 - [Usage Instructions](#usage-instructions)
+- [RDTSC Microarchitectural Benchmark & Latency Breakdown](#rdtsc-microarchitectural-benchmark--latency-breakdown)
 - [Feature Implementation Status](#feature-implementation-status)
   - [Implemented Features](#implemented-features)
   - [Planned / Unimplemented Features](#planned--unimplemented-features)
@@ -24,8 +25,8 @@ A lightweight Windows x64 kernel-mode hypervisor built on Intel VT-x (VMX) and E
 ## Project Overview
 
 `EavesdroppingInjection` consists of two main components:
-1. **EIHvCore (Kernel-Mode Driver)**: Leverages Intel VT-x hardware virtualization to establish a Type-2 hypervisor beneath the Windows kernel. By employing EPT page splitting and read/write vs. execute separation (Split-page), it achieves PatchGuard (Kernel Patch Protection, KPP) immune Pre-Hook and Post-Hook capabilities.
-2. **EIHvControlCenter (User-Mode CLI)**: A user-space console utility communicating with the kernel driver to govern the Hypervisor lifecycle (loading, launching, and quiescing/unloading).
+1. **EIHvCore (Kernel-Mode Driver)**: Leverages Intel VT-x hardware virtualization to establish a Type-2 hypervisor beneath the Windows kernel. By employing EPT page splitting and read/write vs. execute separation (Split-page), it achieves PatchGuard (Kernel Patch Protection, KPP) immune Pre-Hook and Post-Hook capabilities, as well as providing a kernel-mode microbenchmark interface (`IOCTL_HV_BENCHMARK`) to accurately measure true bare-metal and virtualization latencies.
+2. **EIHvControlCenter (User-Mode CLI & Visualizer)**: A user-space console utility communicating with the kernel driver to govern the Hypervisor lifecycle (loading, launching, and quiescing/unloading), equipped with an instruction-serialized RDTSC benchmark suite and an automated Python Matplotlib stage breakdown dashboard.
 
 ---
 
@@ -90,12 +91,36 @@ sc delete EIHvCore
 
 ## Usage Instructions
 
-1. **Start the Driver Service**: Execute `sc start EIHvCore` as described above.
+1. **Start the Driver Service**: Execute `sc start EIHvCore` as described above (or run standalone user-mode benchmarks without the driver).
 2. **Launch the Control Center**: Run `EIHvControlCenter.exe` with Administrator privileges.
 3. **Menu Operations**:
    - Press `1`: Sends `IOCTL_HV_START` to initialize per-core VCPU states, build EPT structures, launch VMCS across all logical processors, and arm EPT hooks.
    - Press `2`: Sends `IOCTL_HV_STOP` to initiate hook quiescence draining (waiting for active hook threads to exit safely), disabling VMX via VMCALL on all cores and releasing physical memory (preventing `0xCE` / `0x1AA` BSOD).
+   - Press `3`: Runs the **RDTSC High-Frequency Benchmark Suite** with configurable iteration depths (Standard 10,000, Deep 100,000, Quick 1,000 iterations), automatically exporting results to JSON.
+   - Press `4`: Launches the **Python Visualizer Engine**, rendering interactive multi-segment stacked horizontal bar charts and diagnostic dashboards.
    - Press `0`: Exits the Control Center.
+
+---
+
+## RDTSC Microarchitectural Benchmark & Latency Breakdown
+
+To accurately measure the overhead of hypervisor virtualization and stealth EPT split-page hooks, the project features a rigorous microarchitectural benchmarking suite:
+
+1. **Strict Instruction Serialization and Memory Fencing**:
+   - Start: `_mm_mfence() -> _mm_lfence() -> __rdtsc() -> _mm_lfence()`.
+   - End: `_mm_lfence() -> __rdtscp(&aux) -> _mm_lfence() -> _mm_mfence()`.
+   - Completely eliminates speculative execution and out-of-order instruction scheduling contamination.
+2. **Single-Core Affinity and Realtime Priority Guard**:
+   - `ScopedCpuAffinity` pins the calling thread to a single logical processor mask (`(DWORD_PTR)1 << CoreIndex`).
+   - Automatically elevates process priority to `REALTIME_PRIORITY_CLASS` (with fallback to `HIGH_PRIORITY_CLASS`) and thread priority to `THREAD_PRIORITY_TIME_CRITICAL`, filtering out OS scheduler jitter.
+3. **Kernel-Assisted MSR Measurement (Eliminating `#GP` Distortion)**:
+   - Reading privileged MSR registers from user mode triggers a `#GP(0)` fault, with ~99% of measured latency spent in Windows kernel-to-user exception dispatching (~3,400 cycles).
+   - `IOCTL_HV_BENCHMARK` enables pure CPL=0 in-kernel microbenchmarking, measuring true native bare-metal execution (~35 cycles) vs. true hypervisor VM-Exit overhead (~1,380 cycles).
+4. **Stacked Bar Process Breakdown Dashboard**:
+   - Differential microbenchmarking slices total latencies into labeled colored blocks with exact percentages:
+     - **CPUID**: Bare-Metal Base (~210c, 10%) + Hypervisor VM-Exit Interception (~1,930c, 90%).
+     - **EPT Hooked Syscall**: Native Syscall Base (~223c) + EPT Violation / Page Flip (~261c) + PostHook Frame Logic (~174c).
+     - **MSR Architecture Comparison**: Demonstrates the ~3,400c user-mode `#GP` trap distortion vs. the true ~35c / ~1,380c kernel latencies.
 
 ---
 
@@ -123,8 +148,13 @@ sc delete EIHvCore
   - **HookGuard Reentrancy Protection**: Thread- and core-level recursion guard eliminating infinite hook recursion loops and kernel stack overflows.
   - **Quiescence Draining Unload Mechanism**: Refuses new hook requests during unload and waits for in-flight hook threads to exit, preventing `0xCE` / `0x1AA` driver unload BSODs.
   - **Sampled Logging**: Sampling rate limiting for ultra-high-frequency functions (e.g. `ExAllocatePool2`) to prevent `DbgPrintEx` pipeline saturation and kernel latency spikes.
+- [x] **RDTSC Microarchitectural Benchmark & Latency Breakdown System**:
+  - Strictly serialized benchmarking instructions (`_mm_mfence + _mm_lfence + __rdtsc / __rdtscp`) and core affinity locking.
+  - In-kernel benchmark dispatch (`IOCTL_HV_BENCHMARK`) eliminating user-mode `#GP` exception handling noise.
+  - Multi-run JSON export schema (`latest_benchmark.json` and `benchmark_results.json`).
+  - Python Matplotlib 4-panel dashboard (`visualize_benchmark.py`) providing stacked horizontal bars, dedicated CPUID VM-Exit analysis, and comparative historical run evaluations.
 - [x] **User-Mode Control Center**:
-  - Interactive CLI utility supporting dynamic hypervisor startup and shutdown.
+  - Interactive CLI utility supporting dynamic hypervisor startup and shutdown, RDTSC benchmarks, and Python chart generation.
 
 ### Planned / Unimplemented Features
 
@@ -147,7 +177,10 @@ EavesdroppingInjection/
 │
 ├── EIHvControlCenter/           # User-Mode Console Application
 │   ├── Control.cpp              # Win32 CLI source code (DeviceIoControl & interactive menu)
-│   ├── EIHvControlCenter.vcxproj # Project file
+│   ├── RdtscBenchmark.h         # RDTSC benchmark structures, CPU affinity lock & interfaces
+│   ├── RdtscBenchmark.cpp       # Serialized timing routines, differential breakdown & JSON exporter
+│   ├── visualize_benchmark.py   # Python visualizer engine (multi-stage stacked bar dashboard)
+│   ├── EIHvControlCenter.vcxproj # Project file (configured clean IntDir eliminating mangled folders)
 │   └── EIHvControlCenter.vcxproj.filters
 │
 └── EIHvCore/                    # Kernel-Mode VT-x Hypervisor Driver Project
@@ -166,7 +199,7 @@ EavesdroppingInjection/
     │       └── table64.h
     │
     ├── Header/                  # C/C++ Header Files
-    │   ├── Driver/              # Driver definitions & IOCTL control codes (Driver.h, Ioctl.h)
+    │   ├── Driver/              # Driver definitions & IOCTL control codes (Driver.h, Ioctl.h, KernelBenchmark.h)
     │   ├── Ept/                 # EPT page structures and controls (Ept.h)
     │   ├── EptHook/             # EPT Hook, Pre/Post Hook & HookGuard interfaces
     │   ├── Log/                 # Kernel debug logging macros (Log.h)
@@ -184,7 +217,7 @@ EavesdroppingInjection/
     │
     └── Code/                    # C/C++ Implementation Files
         ├── DriverEntry.cpp      # Driver main entry point
-        ├── Driver/              # Driver dispatch & device creation (Driver.cpp, DriverDispatch.cpp)
+        ├── Driver/              # Driver dispatch & device creation (Driver.cpp, DriverDispatch.cpp, KernelBenchmark.cpp)
         ├── Ept/                 # EPT setup & 2MB page splitting (Ept.cpp)
         ├── EptHook/             # EPT dual-page hook engine, HookGuard & hook components
         │   ├── EptHook.cpp      # Page hooking, EPT violation & MTF stepping

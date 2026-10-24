@@ -133,11 +133,13 @@
     <ClInclude Include="Header\Vmx\Vmx.h" />
     <ClInclude Include="Header\Ssdt\Ssdt.h" />
     <ClInclude Include="Header\EptHook\HookGuard.h" />
+    <ClInclude Include="Header\Driver\KernelBenchmark.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\DriverEntry.cpp" />
     <ClCompile Include="Code\Driver\Driver.cpp" />
     <ClCompile Include="Code\Driver\DriverDispatch.cpp" />
+    <ClCompile Include="Code\Driver\KernelBenchmark.cpp" />
     <ClCompile Include="Code\EptHook\HookComponents.cpp" />
     <ClCompile Include="Code\EptHook\HookGuard.cpp" />
     <ClCompile Include="Code\Log\Log.cpp" />
