@@ -5,6 +5,6 @@
 class PhysicalMemory
 {
 public:
-	static PVOID AllocateContiguousMemory(SIZE_T Size);
+	static BOOLEAN AllocateContiguousMemory(PVOID* Destination,	SIZE_T Size);
 	static VOID FreeContiguousMemory(PVOID VirtualAddress);
 };

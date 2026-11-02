@@ -33,5 +33,10 @@ VirtualMemory::FreeNonPagedPool(PVOID VirtualAddress)
 ULONG_PTR
 VirtualMemory::VirtualAddressToPhysicalAddress(PVOID VirtualAddress)
 {
-	return MmGetPhysicalAddress(VirtualAddress).QuadPart;
+	if (VirtualAddress != NULL)
+	{
+		return MmGetPhysicalAddress(VirtualAddress).QuadPart;
+	}
+
+	return NULL;
 }

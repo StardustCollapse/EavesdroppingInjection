@@ -89,34 +89,31 @@ Ept::InitializeEpt()
 		return FALSE;
 	}
 
-	Ept::EptState.Pml4Table = (PEPT_PML4E)PhysicalMemory::AllocateContiguousMemory(PAGE_SIZE);
-	if (Ept::EptState.Pml4Table == NULL)
+	BOOLEAN status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&Ept::EptState.Pml4Table, PAGE_SIZE);
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate EPT PML4 table");
 		Ept::DestroyEpt();
 		return FALSE;
 	}
-	RtlZeroMemory(Ept::EptState.Pml4Table, PAGE_SIZE);
 	Ept::EptState.Pml4PhysicalAddress = VirtualMemory::VirtualAddressToPhysicalAddress(Ept::EptState.Pml4Table);
 
-	Ept::EptState.PdptTable = (PEPT_PDPTE)PhysicalMemory::AllocateContiguousMemory(PAGE_SIZE * EPT_PML4E_COUNT);
-	if (Ept::EptState.PdptTable == NULL)
+	status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&Ept::EptState.PdptTable, PAGE_SIZE * EPT_PML4E_COUNT);
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate EPT PDPT table");
 		Ept::DestroyEpt();
 		return FALSE;
 	}
-	RtlZeroMemory(Ept::EptState.PdptTable, PAGE_SIZE * EPT_PML4E_COUNT);
 	Ept::EptState.PdptPhysicalAddress = VirtualMemory::VirtualAddressToPhysicalAddress(Ept::EptState.PdptTable);
 
-	Ept::EptState.PdTables = (PEPT_PAGE_DIRECTORY)PhysicalMemory::AllocateContiguousMemory(PAGE_SIZE * EPT_PML3E_COUNT * EPT_PML4E_COUNT);
-	if (Ept::EptState.PdTables == NULL)
+	status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&Ept::EptState.PdTables, PAGE_SIZE * EPT_PML3E_COUNT * EPT_PML4E_COUNT);
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate EPT Page Directory tables (2MB)");
 		Ept::DestroyEpt();
 		return FALSE;
 	}
-	RtlZeroMemory(Ept::EptState.PdTables, PAGE_SIZE * EPT_PML3E_COUNT * EPT_PML4E_COUNT);
 	Ept::EptState.PdTablesPhysicalAddress = VirtualMemory::VirtualAddressToPhysicalAddress(Ept::EptState.PdTables);
 
 	//can use __stosq() function
@@ -189,35 +186,23 @@ Ept::DestroyEpt()
 	while (CurrentNode != NULL)
 	{
 		PSPLIT_PAGE_NODE NextNode = CurrentNode->Next;
-		if (CurrentNode->PageTableVirtualAddress != NULL)
-		{
-			PhysicalMemory::FreeContiguousMemory(CurrentNode->PageTableVirtualAddress);
-		}
+		PhysicalMemory::FreeContiguousMemory(CurrentNode->PageTableVirtualAddress);
 		VirtualMemory::FreeNonPagedPool(CurrentNode);
 		CurrentNode = NextNode;
 	}
 	Ept::EptState.SplitPageListHead = NULL;
 
-	if (Ept::EptState.PdTables != NULL)
-	{
-		PhysicalMemory::FreeContiguousMemory(Ept::EptState.PdTables);
-		Ept::EptState.PdTables = NULL;
-		Ept::EptState.PdTablesPhysicalAddress = 0;
-	}
+	PhysicalMemory::FreeContiguousMemory(Ept::EptState.PdTables);
+	Ept::EptState.PdTables = NULL;
+	Ept::EptState.PdTablesPhysicalAddress = 0;
 
-	if (Ept::EptState.PdptTable != NULL)
-	{
-		PhysicalMemory::FreeContiguousMemory(Ept::EptState.PdptTable);
-		Ept::EptState.PdptTable = NULL;
-		Ept::EptState.PdptPhysicalAddress = 0;
-	}
+	PhysicalMemory::FreeContiguousMemory(Ept::EptState.PdptTable);
+	Ept::EptState.PdptTable = NULL;
+	Ept::EptState.PdptPhysicalAddress = 0;
 
-	if (Ept::EptState.Pml4Table != NULL)
-	{
-		PhysicalMemory::FreeContiguousMemory(Ept::EptState.Pml4Table);
-		Ept::EptState.Pml4Table = NULL;
-		Ept::EptState.Pml4PhysicalAddress = 0;
-	}
+	PhysicalMemory::FreeContiguousMemory(Ept::EptState.Pml4Table);
+	Ept::EptState.Pml4Table = NULL;
+	Ept::EptState.Pml4PhysicalAddress = 0;
 
 	Ept::EptState.EptPointer.Value = 0;
 	LogInformation("EPT structures destroyed and memory freed successfully");
@@ -298,13 +283,13 @@ Ept::SplitLargePageTo4Kb(ULONG64 PhysicalAddress)
 		return NULL;
 	}
 
-	PEPT_PTE NewPageTable = (PEPT_PTE)PhysicalMemory::AllocateContiguousMemory(PAGE_SIZE);
-	if (NewPageTable == NULL)
+	PEPT_PTE NewPageTable = NULL;
+	BOOLEAN status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&NewPageTable, PAGE_SIZE);
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate 4KB Page Table for splitting 2MB page");
 		return NULL;
 	}
-	RtlZeroMemory(NewPageTable, PAGE_SIZE);
 
 	ULONG64 NewTablePhysicalAddress = VirtualMemory::VirtualAddressToPhysicalAddress(NewPageTable);
 	ULONG64 BasePhysicalAddress = EPT_PHYSICAL_ADDRESS_ALIGNED_2MB(PhysicalAddress);

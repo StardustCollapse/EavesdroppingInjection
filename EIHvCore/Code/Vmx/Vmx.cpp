@@ -84,18 +84,15 @@ Vmx::VmxInitializeVmxonRegion(PVCPU_STATE CurrentCPU)
 {
 	CurrentCPU->VmxonAllocatedFailed = TRUE;
 
-	CurrentCPU->VmxonRegionVirtualAddress = 
-		(ULONG_PTR)PhysicalMemory::AllocateContiguousMemory(VMXON_SIZE);
+	BOOLEAN status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&CurrentCPU->VmxonRegionVirtualAddress, VMXON_SIZE);
 
-	if (CurrentCPU->VmxonRegionVirtualAddress == NULL)
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate VMXON region");
 		return FALSE;
 	}
 
 	CurrentCPU->VmxonAllocatedFailed = FALSE;
-
-	RtlZeroMemory((PVOID)CurrentCPU->VmxonRegionVirtualAddress, VMXON_SIZE);
 
 	CurrentCPU->VmxonRegionPhysicalAddress =
 		VirtualMemory::VirtualAddressToPhysicalAddress((PVOID)CurrentCPU->VmxonRegionVirtualAddress);
@@ -114,18 +111,15 @@ Vmx::VmxInitializeVmcsRegion(PVCPU_STATE CurrentCPU)
 {
 	CurrentCPU->VmcsAllocatedFailed = TRUE;
 
-	CurrentCPU->VmcsRegionVirtualAddress =
-		(ULONG_PTR)PhysicalMemory::AllocateContiguousMemory(VMCS_SIZE);
+	BOOLEAN status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&CurrentCPU->VmcsRegionVirtualAddress, VMCS_SIZE);
 
-	if (CurrentCPU->VmcsRegionVirtualAddress == NULL)
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate VMCS region");
 		return FALSE;
 	}
 
 	CurrentCPU->VmcsAllocatedFailed = FALSE;
-
-	RtlZeroMemory((PVOID)CurrentCPU->VmcsRegionVirtualAddress, VMCS_SIZE);
 
 	CurrentCPU->VmcsRegionPhysicalAddress =
 		VirtualMemory::VirtualAddressToPhysicalAddress((PVOID)CurrentCPU->VmcsRegionVirtualAddress);
@@ -144,18 +138,15 @@ Vmx::VmxInitializeMsrBitmap(PVCPU_STATE CurrentCPU)
 {
 	CurrentCPU->MsrBitmapAllocatedFailed = TRUE;
 
-	CurrentCPU->MsrBitmapVirtualAddress =
-		(ULONG_PTR)PhysicalMemory::AllocateContiguousMemory(MSR_BITMAP_SIZE);
+	BOOLEAN status = PhysicalMemory::AllocateContiguousMemory((PVOID*)&CurrentCPU->MsrBitmapVirtualAddress, MSR_BITMAP_SIZE);
 
-	if (CurrentCPU->MsrBitmapVirtualAddress == NULL)
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate MSR bitmap");
 		return FALSE;
 	}
 
 	CurrentCPU->MsrBitmapAllocatedFailed = FALSE;
-
-	RtlZeroMemory((PVOID)CurrentCPU->MsrBitmapVirtualAddress, MSR_BITMAP_SIZE);
 
 	CurrentCPU->MsrBitmapPhysicalAddress =
 		VirtualMemory::VirtualAddressToPhysicalAddress((PVOID)CurrentCPU->MsrBitmapVirtualAddress);
@@ -192,7 +183,7 @@ Vmx::VmxInitializeVmmStack(PVCPU_STATE CurrentCPU)
 
 	BOOLEAN status = VirtualMemory::AllocateNonPagedPool((PVOID*)&CurrentCPU->VmmStack, VMM_STACK_SIZE, FALSE);
 
-	if(status == FALSE)
+	if (status == FALSE)
 	{
 		LogError("Failed to allocate VMM stack");
 		return FALSE;

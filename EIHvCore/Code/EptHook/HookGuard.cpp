@@ -46,7 +46,6 @@ HookGuard::Initialize(ULONG64 LogicalProcessorsCount)
 		return FALSE;
 	}
 
-	RtlZeroMemory(Buffer, AllocationSize);
 	m_Slots = (PHOOK_GUARD_SLOT)Buffer;
 	m_Capacity = Capacity;
 	m_Mask = Capacity - 1;

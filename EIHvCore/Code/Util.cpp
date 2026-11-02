@@ -54,7 +54,7 @@ Util::AcquireMonitorLock(volatile LONG* Lock)
 			_mm_monitor((void const *)Lock, 0, 0);
 			if (*Lock != 0)
 			{
-				//allow interupt to awake core
+				//allow interrupt to awake core
 				_mm_mwait(1, 0);
 			}
 		}

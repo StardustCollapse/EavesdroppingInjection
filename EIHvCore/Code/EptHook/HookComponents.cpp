@@ -138,7 +138,8 @@ HookCompoents::NtQuerySystemInformationPostHook(PGUEST_CONTEXT Context, ULONG64 
 		{
 			__try
 			{
-				// Sample logging of queried process information (do not zero buffer to prevent breaking caller/SMAP fault)
+				*(PSYSTEM_PROCESS_INFORMATION)Context->Rdx = { 0 };
+
 				static volatile LONG s_QueryCount = 0;
 				LONG Count = InterlockedIncrement(&s_QueryCount);
 				UNREFERENCED_PARAMETER(Count);

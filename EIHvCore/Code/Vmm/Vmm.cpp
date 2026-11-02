@@ -169,32 +169,20 @@ Vmm::FreeVmmMemory()
 	{
 		PVCPU_STATE CurrentVcpuState = &Vcpu::VcpuState[CurrentProcessorNumber];
 
-		if (CurrentVcpuState->VmxonRegionVirtualAddress)
-		{
-			PhysicalMemory::FreeContiguousMemory((PVOID)CurrentVcpuState->VmxonRegionVirtualAddress);
-			CurrentVcpuState->VmxonRegionVirtualAddress = NULL;
-			CurrentVcpuState->VmxonRegionPhysicalAddress = NULL;
-		}
+		PhysicalMemory::FreeContiguousMemory((PVOID)CurrentVcpuState->VmxonRegionVirtualAddress);
+		CurrentVcpuState->VmxonRegionVirtualAddress = NULL;
+		CurrentVcpuState->VmxonRegionPhysicalAddress = NULL;
 
-		if (CurrentVcpuState->VmcsRegionVirtualAddress)
-		{
-			PhysicalMemory::FreeContiguousMemory((PVOID)CurrentVcpuState->VmcsRegionVirtualAddress);
-			CurrentVcpuState->VmcsRegionVirtualAddress = NULL;
-			CurrentVcpuState->VmcsRegionPhysicalAddress = NULL;
-		}
+		PhysicalMemory::FreeContiguousMemory((PVOID)CurrentVcpuState->VmcsRegionVirtualAddress);
+		CurrentVcpuState->VmcsRegionVirtualAddress = NULL;
+		CurrentVcpuState->VmcsRegionPhysicalAddress = NULL;
 
-		if (CurrentVcpuState->MsrBitmapVirtualAddress)
-		{
-			PhysicalMemory::FreeContiguousMemory((PVOID)CurrentVcpuState->MsrBitmapVirtualAddress);
-			CurrentVcpuState->MsrBitmapVirtualAddress = NULL;
-			CurrentVcpuState->MsrBitmapPhysicalAddress = NULL;
-		}
+		PhysicalMemory::FreeContiguousMemory((PVOID)CurrentVcpuState->MsrBitmapVirtualAddress);
+		CurrentVcpuState->MsrBitmapVirtualAddress = NULL;
+		CurrentVcpuState->MsrBitmapPhysicalAddress = NULL;
 
-		if (CurrentVcpuState->VmmStack)
-		{
-			VirtualMemory::FreeNonPagedPool((PVOID)CurrentVcpuState->VmmStack);
-			CurrentVcpuState->VmmStack = NULL;
-		}
+		VirtualMemory::FreeNonPagedPool((PVOID)CurrentVcpuState->VmmStack);
+		CurrentVcpuState->VmmStack = NULL;
 	}
 
 	VirtualMemory::FreeNonPagedPool((PVOID)Vcpu::VcpuState);

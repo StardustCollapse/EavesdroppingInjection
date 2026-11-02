@@ -58,7 +58,7 @@ typedef union  __IA32_FEATURE_CONTROL
 		ULONG64 Reserved3 : 1;
 		ULONG64 OnLMCE : 1;
 		ULONG64 Reserved4 : 43;
-	}Fields;
+	} Fields;
 	ULONG64 MSR;
 } MSR_IA32_FEATURE_CONTROL, * PMSR_IA32_FEATURE_CONTROL;
 
